@@ -107,7 +107,11 @@ export default function PrintOnDemand() {
     requestAnimationFrame(() => listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
 
-  const SelIcon = selected ? icons[selected.icon] || Shirt : Shirt;
+  // Keep the last selection around so the bar's text doesn't vanish while it slides away.
+  const lastSelected = useRef(null);
+  if (selected) lastSelected.current = selected;
+  const shown = selected || lastSelected.current;
+  const SelIcon = shown ? icons[shown.icon] || Shirt : Shirt;
 
   return (
     <div className="pod">
@@ -186,7 +190,13 @@ export default function PrintOnDemand() {
             </div>
             <div className="pod-grid">
               {g.items.map((it, n) => (
-                <ProductCard key={it.slug} item={it} index={n} selected={selected?.slug === it.slug} onSelect={setSelected} />
+                <ProductCard
+                  key={it.slug}
+                  item={it}
+                  index={n}
+                  selected={selected?.slug === it.slug}
+                  onSelect={(item) => setSelected((cur) => (cur?.slug === item.slug ? null : item))}
+                />
               ))}
             </div>
           </section>
@@ -197,11 +207,11 @@ export default function PrintOnDemand() {
         <div className="wrap pod-bar-in">
           <div className="pod-bar-sel">
             <span className="pod-bar-thumb">
-              {selected?.img ? <img src={selected.img} alt="" /> : <SelIcon size={22} />}
+              {shown?.img ? <img src={shown.img} alt="" /> : <SelIcon size={22} />}
             </span>
             <div>
-              <small>Selected · step 1 of 3</small>
-              <strong>{selected ? `${selected.name}${selected.spec ? ` — ${selected.spec}` : ''}` : ''}</strong>
+              <small>Selected · step 1 of 3 · tap again to deselect</small>
+              <strong>{shown ? `${shown.name}${shown.spec ? ` — ${shown.spec}` : ''}` : ''}</strong>
             </div>
           </div>
           <button className="btn btn-lime-solid" tabIndex={selected ? 0 : -1} onClick={() => navigate(`/customise/${selected.slug}`)}>
