@@ -16,7 +16,15 @@ import { useCart } from '../context/CartContext.jsx';
 const TEE_AREAS = {
   front: { left: 28, top: 18, width: 44, height: 66 },
   back: { left: 26, top: 12, width: 48, height: 74 },
+  // Sleeves are seen from the side; the print goes on the outer face of the sleeve.
+  left: { left: 47, top: 27, width: 12.5, height: 22 },
+  right: { left: 46, top: 27, width: 12.5, height: 22 },
 };
+
+export const sides = ['front', 'back', 'left', 'right'];
+const sideLabels = { front: 'Front', back: 'Back', left: 'Left sleeve', right: 'Right sleeve' };
+const garmentPhotos = { front: '/tee-front.png', back: '/tee-back.png', left: '/tee-left.png', right: '/tee-right.png' };
+const SLEEVE_ZOOM = 3.2; // the sleeve views are shown zoomed in, because a sleeve print is small
 // Full body print: the whole photo box. Artwork is then clipped to the shirt's own outline.
 const FULL_AREA = { left: 0, top: 0, width: 100, height: 100 };
 const FLAT_AREA = { left: 0, top: 0, width: 100, height: 100 };
@@ -64,9 +72,17 @@ const readConfig = (slug) => {
 const readSaved = (slug) => {
   try {
     const d = JSON.parse(localStorage.getItem(`po-design-${slug}`) || 'null');
-    if (d && Array.isArray(d.front) && Array.isArray(d.back)) return { front: d.front, back: d.back, mode: d.mode === 'full' ? 'full' : 'normal' };
+    if (d && Array.isArray(d.front) && Array.isArray(d.back)) {
+      return {
+        front: d.front,
+        back: d.back,
+        left: Array.isArray(d.left) ? d.left : [],
+        right: Array.isArray(d.right) ? d.right : [],
+        mode: d.mode === 'full' ? 'full' : 'normal',
+      };
+    }
   } catch { /* ignore */ }
-  return { front: [], back: [], mode: 'normal' };
+  return { front: [], back: [], left: [], right: [], mode: 'normal' };
 };
 
 // Re-express layers from one print area to another so they stay in the same place and size on the shirt.
@@ -255,8 +271,10 @@ function Studio({ product, cfg, slug }) {
   const aspect = isTee ? 1 : flatRatio(cfg.product);
   const area = areaFor(isTee, mode, side);
   const areaAspect = (area.width / area.height) * aspect; // width / height of the print area
-  const totalLayers = design.front.length + design.back.length;
-  const garmentSrc = side === 'front' ? '/tee-front.png' : '/tee-back.png';
+  const totalLayers = sides.reduce((n, s) => n + design[s].length, 0);
+  const garmentSrc = garmentPhotos[side];
+  const sleeveView = isTee && !full && (side === 'left' || side === 'right');
+  const zoom = sleeveView ? { z: SLEEVE_ZOOM, cx: area.left + area.width / 2, cy: area.top + area.height / 2 } : null;
 
   /* ----- edit helpers ----- */
   const update = (fn, push = true) => set((d) => ({ ...d, [side]: fn(d[side]) }), push);
@@ -279,8 +297,7 @@ function Studio({ product, cfg, slug }) {
     set((d) => ({
       ...d,
       mode: next,
-      front: convertLayers(d.front, areaFor(true, d.mode, 'front'), areaFor(true, next, 'front')),
-      back: convertLayers(d.back, areaFor(true, d.mode, 'back'), areaFor(true, next, 'back')),
+      ...Object.fromEntries(sides.map((s) => [s, convertLayers(d[s], areaFor(true, d.mode, s), areaFor(true, next, s))])),
     }));
     setAdded(false);
   };
@@ -479,9 +496,9 @@ function Studio({ product, cfg, slug }) {
             </div>
             {isTee && (
               <div className="opt-views st-sides" role="tablist" aria-label="Side to design">
-                {['front', 'back'].map((s) => (
+                {sides.map((s) => (
                   <button key={s} role="tab" aria-selected={side === s} className={side === s ? 'on' : ''} onClick={() => { setSide(s); setSelectedId(null); }}>
-                    {s === 'front' ? 'Front' : 'Back'}{design[s].length ? ` · ${design[s].length}` : ''}
+                    {sideLabels[s]}{design[s].length ? ` · ${design[s].length}` : ''}
                   </button>
                 ))}
               </div>
@@ -507,27 +524,32 @@ function Studio({ product, cfg, slug }) {
           {notice && <p className="st-alert" role="alert"><AlertTriangle size={15} /> {notice}</p>}
 
           <div className="st-canvas" onPointerDown={() => setSelectedId(null)}>
-            <div className="st-stage" style={{ width: `min(100%, calc(74vh * ${aspect}))`, aspectRatio: String(aspect) }}>
-              {isTee ? (
-                <div className="st-garment">
-                  <TeePhoto src={garmentSrc} colour={hex} alt={`${label}, ${side}`} />
-                </div>
-              ) : (
-                <div className="st-flat" style={{ background: hex }} />
-              )}
+            <div className={`st-stage${zoom ? ' zoomed' : ''}`} style={{ width: `min(100%, calc(74vh * ${aspect}))`, aspectRatio: String(aspect) }}>
               <div
-                ref={areaRef}
-                className="st-area"
-                style={{ left: `${area.left}%`, top: `${area.top}%`, width: `${area.width}%`, height: `${area.height}%` }}
+                className="st-zoom"
+                style={zoom ? { transform: `translate(${50 - zoom.z * zoom.cx}%, ${50 - zoom.z * zoom.cy}%) scale(${zoom.z})`, '--z': zoom.z } : undefined}
               >
-                {guide && !full && <span className="st-guide"><em>Print area{isTee ? ` · ${side}` : ''}</em></span>}
-                <div className={`st-clip${full ? ' full' : ''}`} style={full ? { '--mask': `url("${garmentSrc}")` } : undefined}>
-                  {layers.map((l) => (
-                    <Layer key={l.id} layer={l} areaRef={areaRef} onSelect={setSelectedId} onBegin={checkpoint} onChange={patch} />
-                  ))}
-                </div>
-                <div className="st-chrome">
-                  {selected && <Chrome key={selected.id} layer={selected} areaRef={areaRef} onBegin={checkpoint} onChange={patch} />}
+                {isTee ? (
+                  <div className="st-garment">
+                    <TeePhoto src={garmentSrc} colour={hex} alt={`${label}, ${sideLabels[side]}`} />
+                  </div>
+                ) : (
+                  <div className="st-flat" style={{ background: hex }} />
+                )}
+                <div
+                  ref={areaRef}
+                  className="st-area"
+                  style={{ left: `${area.left}%`, top: `${area.top}%`, width: `${area.width}%`, height: `${area.height}%` }}
+                >
+                  {guide && !full && <span className="st-guide"><em>Print area{isTee ? ` · ${sideLabels[side]}` : ''}</em></span>}
+                  <div className={`st-clip${full ? ' full' : ''}`} style={full ? { '--mask': `url("${garmentSrc}")` } : undefined}>
+                    {layers.map((l) => (
+                      <Layer key={l.id} layer={l} areaRef={areaRef} onSelect={setSelectedId} onBegin={checkpoint} onChange={patch} />
+                    ))}
+                  </div>
+                  <div className="st-chrome">
+                    {selected && <Chrome key={selected.id} layer={selected} areaRef={areaRef} onBegin={checkpoint} onChange={patch} />}
+                  </div>
                 </div>
               </div>
               {!totalLayers && (
@@ -537,6 +559,7 @@ function Studio({ product, cfg, slug }) {
           </div>
 
           <div className="st-status">
+            {sleeveView && <span className="st-info"><Info size={14} /> Sleeve view is zoomed in. Your print goes on the outer face of the {sideLabels[side].toLowerCase()}.</span>}
             {full && <span className="st-info"><Info size={14} /> Full body print: your artwork covers the whole shirt and is clipped to its shape.</span>}
             {selected?.type === 'image' && selected.image.nw < 800 && (
               <span className="st-warn"><Info size={14} /> This image is small ({selected.image.nw}px wide) and may print blurry.</span>
@@ -623,7 +646,7 @@ function Studio({ product, cfg, slug }) {
           </section>
 
           <section className="st-card" aria-label="Layers">
-            <h3>Layers{isTee ? ` · ${side}` : ''}</h3>
+            <h3>Layers{isTee ? ` · ${sideLabels[side]}` : ''}</h3>
             {layers.length === 0 ? (
               <p className="opt-muted">Nothing here yet.</p>
             ) : (
@@ -650,7 +673,7 @@ function Studio({ product, cfg, slug }) {
               {sizeSummary && (<><dt>Sizes</dt><dd>{sizeSummary}</dd></>)}
               <dt>Quantity</dt><dd>{cfg.quantity}</dd>
               {isTee && (<><dt>Print</dt><dd>{full ? 'Full body print' : 'Normal print'}</dd></>)}
-              <dt>Design</dt><dd>{isTee ? `Front ${design.front.length} · Back ${design.back.length}` : `${design.front.length} item${design.front.length === 1 ? '' : 's'}`}</dd>
+              <dt>Design</dt><dd>{isTee ? sides.map((s) => `${sideLabels[s]} ${design[s].length}`).join(' · ') : `${design.front.length} item${design.front.length === 1 ? '' : 's'}`}</dd>
             </dl>
 
             {added ? (

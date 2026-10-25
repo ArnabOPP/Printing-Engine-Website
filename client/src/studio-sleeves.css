@@ -1,0 +1,19 @@
+/* ===== Sleeve views: zoomed stage, with handles and guide kept at a constant on-screen size ===== */
+.st-zoom { position: absolute; inset: 0; transform-origin: 0 0; }
+.st-stage.zoomed { overflow: hidden; border-radius: 14px; }
+
+/* --z is the zoom factor (set inline on .st-zoom). Everything inside is scaled by it, so sizes that
+   should stay the same on screen are divided by it. With no zoom, --z falls back to 1 and nothing changes. */
+.st-box { inset: calc(-4px / var(--z, 1)); border-width: calc(1.5px / var(--z, 1)); box-shadow: 0 0 0 calc(1px / var(--z, 1)) rgba(0, 0, 0, 0.35); }
+.st-handle { transform: scale(calc(1 / var(--z, 1))); }
+.st-size { right: calc(-4px / var(--z, 1) - 9px); bottom: calc(-4px / var(--z, 1) - 9px); }
+.st-rot { top: calc(-25px / var(--z, 1) - 9px); }
+.st-guide { border-width: calc(1.5px / var(--z, 1)); }
+.st-guide em { transform: translateX(-50%) scale(calc(1 / var(--z, 1))); transform-origin: 50% 100%; bottom: calc(100% + 4px / var(--z, 1)); }
+
+/* Four sides in the switcher */
+.st-sides { flex: 1 1 340px; min-width: 0; flex-wrap: wrap; }
+.st-sides button { white-space: nowrap; font-size: 12.5px; padding: 8px 8px; }
+@media (max-width: 800px) {
+  .st-sides button { flex: 1 1 45%; }
+}
