@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Minus, Plus, User, Users, Baby, Shirt } from 'lucide-react';
 import { printProducts } from '../printProducts.js';
 import { productIcons } from '../productIcons.js';
+import TeePhoto from '../components/TeePhoto.jsx';
 import NotFound from './NotFound.jsx';
 
 const audiences = [
@@ -22,17 +23,6 @@ function gsmNote(option) {
   if (n <= 170) return 'Soft, everyday weight';
   if (n <= 200) return 'Balanced and durable';
   return 'Heavy, premium feel';
-}
-
-// A transparent white-tee photo, tinted to the chosen colour: the colour fills the tee's silhouette
-// (via the photo's own alpha as a mask) and the photo is multiplied on top to keep the folds and shading.
-function TeePhoto({ src, colour, alt }) {
-  return (
-    <div className="tee-photo" style={{ '--tint': colour, '--mask': `url("${src}")` }}>
-      <i className="tee-tint" />
-      <img src={src} alt={alt} />
-    </div>
-  );
 }
 
 function StepHead({ n, title, hint, done }) {
@@ -115,9 +105,10 @@ export default function Customise() {
 
   const goOn = () => {
     if (!ready) return;
-    navigate(`/design/${product.slug}`, {
-      state: { product: label, category: product.category, material, colour, audience, sizes: sizeQty, quantity: total },
-    });
+    const config = { product: label, category: product.category, material, colour, audience, sizes: sizeQty, quantity: total };
+    // Kept in sessionStorage too, so the design page still works after a refresh.
+    try { sessionStorage.setItem(`po-config-${product.slug}`, JSON.stringify(config)); } catch { /* ignore */ }
+    navigate(`/design/${product.slug}`, { state: config });
   };
 
   return (
