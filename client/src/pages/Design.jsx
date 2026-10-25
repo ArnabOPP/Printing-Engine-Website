@@ -31,6 +31,8 @@ const FLAT_AREA = { left: 0, top: 0, width: 100, height: 100 };
 
 const areaFor = (isTee, mode, side) => {
   if (!isTee) return FLAT_AREA;
+  // Sleeves keep their own small print area, even in full body print.
+  if (side === 'left' || side === 'right') return TEE_AREAS[side];
   return mode === 'full' ? FULL_AREA : TEE_AREAS[side];
 };
 
@@ -55,7 +57,7 @@ const palette = ['#ffffff', '#161616', '#b6ff00', '#d32f2f', '#2b59d9', '#f2c230
 
 const printModes = [
   { id: 'normal', title: 'Normal print', text: 'Print inside the chest or back area. Your artwork stays inside the area and can’t go beyond it.' },
-  { id: 'full', title: 'Full body print', text: 'All-over print across the whole shirt. Your artwork is clipped to the shirt’s shape.' },
+  { id: 'full', title: 'Full body print', text: 'All-over print across the front and back, clipped to the shirt’s shape. Sleeves keep their own small print area.' },
 ];
 
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -266,6 +268,8 @@ function Studio({ product, cfg, slug }) {
 
   const mode = isTee ? design.mode : 'normal';
   const full = mode === 'full';
+  const isSleeve = isTee && (side === 'left' || side === 'right');
+  const free = full && !isSleeve; // true when artwork may cover the whole shirt (front/back in full body print)
   const layers = design[side];
   const selected = layers.find((l) => l.id === selectedId) || null;
   const aspect = isTee ? 1 : flatRatio(cfg.product);
@@ -273,7 +277,7 @@ function Studio({ product, cfg, slug }) {
   const areaAspect = (area.width / area.height) * aspect; // width / height of the print area
   const totalLayers = sides.reduce((n, s) => n + design[s].length, 0);
   const garmentSrc = garmentPhotos[side];
-  const sleeveView = isTee && !full && (side === 'left' || side === 'right');
+  const sleeveView = isSleeve;
   const zoom = sleeveView ? { z: SLEEVE_ZOOM, cx: area.left + area.width / 2, cy: area.top + area.height / 2 } : null;
 
   /* ----- edit helpers ----- */
@@ -319,7 +323,7 @@ function Studio({ product, cfg, slug }) {
       img.onload = () => {
         const ratio = img.naturalHeight / img.naturalWidth || 1;
         // Start as large as is comfortable, but never bigger than the print area.
-        const w = Math.min(full ? 70 : 85, 92 / (ratio * (area.width / area.height) * aspect));
+        const w = Math.min(free ? 70 : 85, 92 / (ratio * (area.width / area.height) * aspect));
         addLayer({
           id: uid(), type: 'image', x: 50, y: 50, w: Math.max(w, 8), rot: 0, opacity: 1, flip: false,
           image: { src, ratio, nw: img.naturalWidth, name: file.name },
@@ -361,7 +365,7 @@ function Studio({ product, cfg, slug }) {
   // Normal print: artwork can never leave the print area. After every change, shrink anything that is
   // too big to fit and nudge the rest back inside (rotation is taken into account).
   useLayoutEffect(() => {
-    if (full) return;
+    if (free) return;
     const el = areaRef.current;
     if (!el) return;
     const aw = el.clientWidth;
@@ -392,7 +396,7 @@ function Studio({ product, cfg, slug }) {
       return next;
     });
     if (changed) update(() => fixed, false);
-  }, [layers, side, full]);
+  }, [layers, side, free]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -503,7 +507,7 @@ function Studio({ product, cfg, slug }) {
                 ))}
               </div>
             )}
-            {!full && (
+            {!free && (
               <label className="st-guide-toggle">
                 <input type="checkbox" checked={guide} onChange={(e) => setGuide(e.target.checked)} /> Print area
               </label>
@@ -541,8 +545,8 @@ function Studio({ product, cfg, slug }) {
                   className="st-area"
                   style={{ left: `${area.left}%`, top: `${area.top}%`, width: `${area.width}%`, height: `${area.height}%` }}
                 >
-                  {guide && !full && <span className="st-guide"><em>Print area{isTee ? ` · ${sideLabels[side]}` : ''}</em></span>}
-                  <div className={`st-clip${full ? ' full' : ''}`} style={full ? { '--mask': `url("${garmentSrc}")` } : undefined}>
+                  {guide && !free && <span className="st-guide"><em>Print area{isTee ? ` · ${sideLabels[side]}` : ''}</em></span>}
+                  <div className={`st-clip${free ? ' full' : ''}`} style={free ? { '--mask': `url("${garmentSrc}")` } : undefined}>
                     {layers.map((l) => (
                       <Layer key={l.id} layer={l} areaRef={areaRef} onSelect={setSelectedId} onBegin={checkpoint} onChange={patch} />
                     ))}
@@ -560,7 +564,7 @@ function Studio({ product, cfg, slug }) {
 
           <div className="st-status">
             {sleeveView && <span className="st-info"><Info size={14} /> Sleeve view is zoomed in. Your print goes on the outer face of the {sideLabels[side].toLowerCase()}.</span>}
-            {full && <span className="st-info"><Info size={14} /> Full body print: your artwork covers the whole shirt and is clipped to its shape.</span>}
+            {free && <span className="st-info"><Info size={14} /> Full body print: your artwork covers the whole shirt and is clipped to its shape.</span>}
             {selected?.type === 'image' && selected.image.nw < 800 && (
               <span className="st-warn"><Info size={14} /> This image is small ({selected.image.nw}px wide) and may print blurry.</span>
             )}
@@ -620,7 +624,7 @@ function Studio({ product, cfg, slug }) {
                   <button
                     type="button"
                     onClick={() => patch(selected.id, (l) => ({
-                      w: Math.max(Math.min(full ? 70 : 85, 92 / (l.image.ratio * (area.width / area.height) * aspect)), 8), x: 50, y: 50, rot: 0,
+                      w: Math.max(Math.min(free ? 70 : 85, 92 / (l.image.ratio * (area.width / area.height) * aspect)), 8), x: 50, y: 50, rot: 0,
                     }))}
                   ><RotateCcw size={15} /> Fit to area</button>
                 </div>
