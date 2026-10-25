@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ArrowRight, ChevronLeft, ChevronRight, Heart, Check, Gem, Infinity as Inf, Users, Truck,
   Upload, Type, Shapes, Image as ImageIcon, Sticker as StickerIcon, Shirt, PenTool, ShoppingCart, Box, Minus, Plus,
@@ -87,11 +88,13 @@ function Trending() {
           <article className="card" key={p.name}>
             <div className="card-img">
               <button className="wish" aria-label="Add to wishlist"><Heart size={18} /></button>
-              <img src={p.img} alt={p.name} loading="lazy" width="400" height="400" />
+              <Link to={`/product/${p.slug}`} aria-label={`View ${p.name}`}>
+                <img src={p.img} alt={p.name} loading="lazy" width="400" height="400" />
+              </Link>
             </div>
             <div className="card-body">
               <div className="card-row">
-                <h4>{p.name}</h4>
+                <h4><Link to={`/product/${p.slug}`}>{p.name}</Link></h4>
                 <button className="wish-sm" aria-label={`Wishlist ${p.name}`}><Heart size={16} /></button>
               </div>
               <div className="price">{price(p.price)}</div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { Search, User, Heart, ShoppingBag, Moon, Sun, ChevronDown, ArrowRight, Mail, Phone } from 'lucide-react';
 import { siInstagram, siFacebook, siWhatsapp, siYoutube, siVisa, siMastercard } from 'simple-icons';
+import { useCart } from '../context/CartContext.jsx';
 
 function getInitialTheme() {
   try {
@@ -35,6 +36,7 @@ const Social = ({ icon }) => (
 
 export default function Layout() {
   const [theme, setTheme] = useState(getInitialTheme);
+  const { count } = useCart();
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -47,9 +49,9 @@ export default function Layout() {
         <div className="wrap topbar-in">
           <span className="topbar-left"><span className="dot" />Your Ideas. Our Prints. Endless Possibilities.</span>
           <span className="topbar-right">
-            <a href="#how">Track Order</a>
-            <a href="#how">Help</a>
-            <a href="#footer">Contact</a>
+            <a href="/#how">Track Order</a>
+            <a href="/#how">Help</a>
+            <a href="/#footer">Contact</a>
           </span>
         </div>
       </div>
@@ -58,11 +60,11 @@ export default function Layout() {
         <div className="wrap nav-in">
           <Logo />
           <nav className="nav-links" aria-label="Primary">
-            <a href="#categories">Shop <ChevronDown size={12} /></a>
-            <a href="#customiser">Customise</a>
-            <a href="#originals">VA Originals</a>
-            <a href="#bulk">Bulk Orders</a>
-            <a href="#gifts">Gift Store</a>
+            <a href="/#categories">Shop <ChevronDown size={12} /></a>
+            <a href="/#customiser">Customise</a>
+            <a href="/#originals">VA Originals</a>
+            <a href="/#bulk">Bulk Orders</a>
+            <a href="/#gifts">Gift Store</a>
           </nav>
           <form className="search" onSubmit={(e) => e.preventDefault()} role="search">
             <Search size={16} />
@@ -74,7 +76,7 @@ export default function Layout() {
             </button>
             <button className="icon-btn" aria-label="Account"><User size={20} /></button>
             <button className="icon-btn" aria-label="Wishlist"><Heart size={20} /></button>
-            <button className="icon-btn cart" aria-label="Cart"><ShoppingBag size={20} /><b>0</b></button>
+            <button className="icon-btn cart" aria-label="Cart"><ShoppingBag size={20} /><b>{count}</b></button>
           </div>
         </div>
       </header>
@@ -92,18 +94,18 @@ export default function Layout() {
           </div>
           <div>
             <h4>Shop</h4>
-            <a href="#categories">All Products</a><a href="#categories">T-Shirts</a><a href="#categories">Mugs & Drinkware</a>
-            <a href="#categories">Keychains & Accessories</a><a href="#categories">Stationery</a><a href="#categories">Stickers & Labels</a><a href="#categories">Photo Gifts</a>
+            <a href="/#categories">All Products</a><a href="/#categories">T-Shirts</a><a href="/#categories">Mugs & Drinkware</a>
+            <a href="/#categories">Keychains & Accessories</a><a href="/#categories">Stationery</a><a href="/#categories">Stickers & Labels</a><a href="/#categories">Photo Gifts</a>
           </div>
           <div>
             <h4>Help</h4>
-            <a href="#how">FAQs</a><a href="#how">Size Guide</a><a href="#how">Artwork Guidelines</a><a href="#how">Shipping Policy</a>
-            <a href="#how">Returns & Refunds</a><a href="#how">Track Order</a><a href="#footer">Contact Us</a>
+            <a href="/#how">FAQs</a><a href="/#how">Size Guide</a><a href="/#how">Artwork Guidelines</a><a href="/#how">Shipping Policy</a>
+            <a href="/#how">Returns & Refunds</a><a href="/#how">Track Order</a><a href="/#footer">Contact Us</a>
           </div>
           <div>
             <h4>Company</h4>
-            <NavLink to="/about">About Us</NavLink><a href="#originals">VA Originals</a><a href="#bulk">Bulk Orders</a>
-            <a href="#bulk">Reseller Program</a><a href="#footer">Terms & Conditions</a><a href="#footer">Privacy Policy</a>
+            <NavLink to="/about">About Us</NavLink><a href="/#originals">VA Originals</a><a href="/#bulk">Bulk Orders</a>
+            <a href="/#bulk">Reseller Program</a><a href="/#footer">Terms & Conditions</a><a href="/#footer">Privacy Policy</a>
           </div>
           <div className="footer-join">
             <h4>Join Our Community</h4>
