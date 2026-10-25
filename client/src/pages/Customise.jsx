@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Minus, Plus, User, Users, Baby, Shirt } from 'lucide-react';
 import { printProducts } from '../printProducts.js';
-import { Tee } from '../components/Art.jsx';
 import { productIcons } from '../productIcons.js';
 import NotFound from './NotFound.jsx';
 
@@ -23,6 +22,17 @@ function gsmNote(option) {
   if (n <= 170) return 'Soft, everyday weight';
   if (n <= 200) return 'Balanced and durable';
   return 'Heavy, premium feel';
+}
+
+// A transparent white-tee photo, tinted to the chosen colour: the colour fills the tee's silhouette
+// (via the photo's own alpha as a mask) and the photo is multiplied on top to keep the folds and shading.
+function TeePhoto({ src, colour, alt }) {
+  return (
+    <div className="tee-photo" style={{ '--tint': colour, '--mask': `url("${src}")` }}>
+      <i className="tee-tint" />
+      <img src={src} alt={alt} />
+    </div>
+  );
 }
 
 function StepHead({ n, title, hint, done }) {
@@ -47,6 +57,7 @@ export default function Customise() {
   const [audience, setAudience] = useState(null);
   const [sizeQty, setSizeQty] = useState({});
   const [qty, setQty] = useState(1);
+  const [view, setView] = useState('front');
 
   const isApparel = product?.category === 'T-Shirts';
   const materials = product?.fabric?.options || [];
@@ -61,6 +72,7 @@ export default function Customise() {
     setAudience(null);
     setSizeQty({});
     setQty(1);
+    setView('front');
   }, [slug, product]);
 
   const total = isApparel ? Object.values(sizeQty).reduce((a, b) => a + b, 0) : qty;
@@ -219,13 +231,26 @@ export default function Customise() {
         <aside className="opt-summary" aria-label="Your selection">
           <div className="opt-preview">
             {isApparel ? (
-              <Tee color={colourObj?.hex || '#f2f2f2'} lines={[]} />
+              <TeePhoto
+                src={view === 'front' ? '/tee-front.png' : '/tee-back.png'}
+                colour={colourObj?.hex || '#ffffff'}
+                alt={`${label}, ${view} view${colour ? `, ${colour}` : ''}`}
+              />
             ) : product.img ? (
               <img src={product.img} alt="" />
             ) : (
               <PreviewIcon size={72} strokeWidth={1.2} />
             )}
           </div>
+          {isApparel && (
+            <div className="opt-views" role="tablist" aria-label="Preview side">
+              {['front', 'back'].map((v) => (
+                <button key={v} role="tab" aria-selected={view === v} className={view === v ? 'on' : ''} onClick={() => setView(v)}>
+                  {v === 'front' ? 'Front' : 'Back'}
+                </button>
+              ))}
+            </div>
+          )}
           <h3>{label}</h3>
           <dl>
             {materials.length > 0 && (<><dt>Material</dt><dd>{material ? `${product.fabric.material} · ${material}` : '—'}</dd></>)}
