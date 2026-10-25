@@ -516,3 +516,60 @@ ul { list-style: none; margin: 0; padding: 0; }
   .pd-desc { grid-template-columns: 1fr; }
   .pd-panel { padding: 20px; }
 }
+
+/* ===== Print on Demand: choose a product ===== */
+.pod-hero { padding: 26px 0 30px; background: radial-gradient(60% 120% at 80% 0%, rgba(182, 255, 0, 0.12), transparent 60%); border-bottom: 1px solid var(--border); }
+.pod-hero h1 { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: clamp(44px, 6vw, 72px); line-height: 0.95; margin: 14px 0 12px; }
+.pod-hero h1 span { color: var(--lime-ink); }
+:root[data-theme='dark'] .pod-hero h1 span { color: var(--lime); }
+.pod-hero p { color: var(--muted); max-width: 520px; font-size: 14px; }
+
+.pod-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 0 6px; position: sticky; top: 68px; z-index: 20; background: var(--bg); }
+.pod-chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px; }
+.pod-chips::-webkit-scrollbar { display: none; }
+.pod-chips button { white-space: nowrap; padding: 9px 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); font-size: 13px; font-weight: 600; }
+.pod-chips button small { color: var(--muted); margin-left: 4px; font-size: 11px; }
+.pod-chips button:hover { border-color: var(--text); }
+.pod-chips button.on { background: var(--lime); border-color: var(--lime); color: #0d0d0f; }
+.pod-chips button.on small { color: #3d4a10; }
+.pod-search { flex: none; display: flex; align-items: center; gap: 8px; padding: 0 14px; height: 40px; width: 240px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--muted); }
+.pod-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 13px; }
+
+.pod-group { margin-top: 34px; }
+.pod-group-head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.pod-num { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 34px; color: var(--lime-ink); line-height: 1; }
+:root[data-theme='dark'] .pod-num { color: var(--lime); }
+.pod-group-head h2 { font-size: 22px; font-weight: 800; }
+.pod-group-head p { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.pod-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+
+.pod-card { text-align: left; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; }
+.pod-card:hover { transform: translateY(-3px); border-color: var(--text); box-shadow: var(--shadow); }
+.pod-card.on { border-color: var(--lime); box-shadow: 0 0 0 2px var(--lime); }
+.pod-card-img { position: relative; aspect-ratio: 4 / 3; background: var(--card-img); display: grid; place-items: center; overflow: hidden; }
+.pod-card-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pod-icon { width: 84px; height: 84px; border-radius: 22px; display: grid; place-items: center; color: var(--lime-ink); background: color-mix(in srgb, var(--lime) 28%, transparent); }
+:root[data-theme='dark'] .pod-icon { color: var(--lime); background: #1b2308; }
+.pod-check { position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; border-radius: 50%; background: var(--lime); color: #0d0d0f; display: grid; place-items: center; }
+.pod-card-body { padding: 12px 14px 14px; display: grid; gap: 3px; }
+.pod-card-body strong { font-size: 14px; }
+.pod-card-body small { color: var(--muted); font-size: 12px; }
+.pod-empty { padding: 60px 0; text-align: center; color: var(--muted); }
+
+.pod { padding-bottom: 110px; }
+.pod-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--surface); border-top: 1px solid var(--border); box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.25); transform: translateY(110%); transition: transform 0.25s ease; }
+.pod-bar.show { transform: none; }
+.pod-bar-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; }
+.pod-bar small { display: block; color: var(--muted); font-size: 11px; }
+.pod-bar strong { font-size: 15px; }
+
+@media (max-width: 800px) {
+  .pod-toolbar { flex-direction: column; align-items: stretch; top: 0; position: static; padding-top: 18px; }
+  .pod-search { width: 100%; }
+  .pod-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .pod-icon { width: 64px; height: 64px; border-radius: 18px; }
+  .pod-icon svg { width: 32px; height: 32px; }
+  .pod-card-body { padding: 10px 12px 12px; }
+  .pod-group-head h2 { font-size: 19px; }
+  .pod-bar-in { padding: 12px 0; }
+}

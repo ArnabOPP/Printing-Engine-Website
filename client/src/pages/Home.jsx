@@ -27,7 +27,7 @@ function Hero() {
           <p className="hero-text">From statement streetwear to personalised gifts, turn your ideas into products made for you.</p>
           <div className="cta-row">
             <a href="#categories" className="btn btn-lime">EXPLORE COLLECTION <ArrowRight size={16} /></a>
-            <a href="#customiser" className="btn btn-ghost">CREATE YOUR OWN</a>
+            <Link to="/print-on-demand" className="btn btn-ghost">CREATE YOUR OWN</Link>
           </div>
         </div>
         <div className="thumbs">
@@ -58,7 +58,7 @@ function Promos() {
       </article>
       <article className="promo promo-photo promo-create">
         <div><h3>Create<br />Your Own</h3><p>Upload your design, add text, choose colours and preview before ordering.</p>
-          <a href="#customiser" className="btn btn-dark">Start Creating <ArrowRight size={14} /></a></div>
+          <Link to="/print-on-demand" className="btn btn-dark">Start Creating <ArrowRight size={14} /></Link></div>
         <div className="chips" aria-hidden="true"><span><Type size={20} /></span><span><ImageIcon size={20} /></span></div>
       </article>
       <article className="promo promo-photo promo-bulk">

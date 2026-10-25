@@ -61,7 +61,7 @@ export default function Layout() {
           <Logo />
           <nav className="nav-links" aria-label="Primary">
             <a href="/#categories">Shop <ChevronDown size={12} /></a>
-            <a href="/#customiser">Customise</a>
+            <Link to="/print-on-demand">Customise</Link>
             <a href="/#originals">VA Originals</a>
             <a href="/#bulk">Bulk Orders</a>
             <a href="/#gifts">Gift Store</a>
