@@ -15,7 +15,7 @@ import { useCart } from '../context/CartContext.jsx';
 // Normal print: where the print goes on the tee photo, as % of the photo box.
 const TEE_AREAS = {
   front: { left: 28, top: 18, width: 44, height: 66 },
-  back: { left: 26, top: 13, width: 48, height: 60 },
+  back: { left: 26, top: 12, width: 48, height: 74 },
 };
 // Full body print: the whole photo box. Artwork is then clipped to the shirt's own outline.
 const FULL_AREA = { left: 0, top: 0, width: 100, height: 100 };
