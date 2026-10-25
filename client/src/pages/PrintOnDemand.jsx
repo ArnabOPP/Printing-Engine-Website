@@ -74,6 +74,15 @@ function ProductCard({ item, index, selected, onSelect }) {
             {item.colors.length > 6 && <em>+{item.colors.length - 6}</em>}
           </span>
         )}
+        {item.fabric && (
+          <span className="pod-fabric">
+            <b>Material</b>
+            <span className="pod-fabric-name">{item.fabric.material}</span>
+            <span className="pod-quals">
+              {item.fabric.options.map((o) => <i key={o}>{o}</i>)}
+            </span>
+          </span>
+        )}
       </span>
     </button>
   );

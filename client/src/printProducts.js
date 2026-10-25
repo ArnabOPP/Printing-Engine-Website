@@ -106,6 +106,36 @@ const colourOptions = {
   'Photo Frame': ['black', 'brown', 'white'],
 };
 
+// Material and the quality options available per product. PLACEHOLDERS: edit to match what you really offer.
+const fabrics = {
+  'Cotton T-Shirt': { material: '100% Cotton', options: ['160 GSM', '180 GSM', '220 GSM'] },
+  'Polo T-Shirt': { material: 'Cotton piqué', options: ['180 GSM', '220 GSM'] },
+  'Regular T-Shirt': { material: '100% Cotton', options: ['160 GSM', '180 GSM'] },
+  'Dri-Fit T-Shirt': { material: 'Polyester, quick-dry', options: ['130 GSM', '150 GSM'] },
+  'Dot-Net T-Shirt': { material: 'Polyester mesh', options: ['130 GSM', '150 GSM'] },
+  'Oversized T-Shirt': { material: 'Heavy cotton', options: ['220 GSM', '240 GSM'] },
+  Caps: { material: 'Cotton twill', options: ['Standard', 'Premium'] },
+  'Cups / Mugs': { material: 'Ceramic', options: ['11 oz', '15 oz'] },
+  Keychains: { material: 'Acrylic or metal', options: ['Acrylic', 'Metal'] },
+  Notebooks: { material: 'Paper pages, hard cover', options: ['70 GSM', '80 GSM'] },
+  Pens: { material: 'Plastic or metal body', options: ['Plastic', 'Metal'] },
+  'Cover Files': { material: 'Laminated board', options: ['Standard', 'Premium'] },
+  'Tote Bags': { material: 'Cotton canvas', options: ['140 GSM', '220 GSM'] },
+  Badges: { material: 'Metal or plastic pin', options: ['Metal', 'Plastic'] },
+  Bottles: { material: 'Steel or plastic', options: ['Steel', 'Plastic'] },
+  'Photo Frame': { material: 'Wood-look frame, glass front', options: ['Standard', 'Premium'] },
+  'Visiting Card': { material: 'Card stock', options: ['300 GSM', '350 GSM'] },
+  'PVC Card': { material: 'PVC', options: ['Glossy', 'Matte'] },
+  'ID Card': { material: 'PVC', options: ['Glossy', 'Matte'] },
+  Stickers: { material: 'Vinyl', options: ['Glossy', 'Matte'] },
+  Labels: { material: 'Vinyl or paper', options: ['Vinyl', 'Paper'] },
+  Cards: { material: 'Art paper', options: ['250 GSM', '300 GSM'] },
+  Posters: { material: 'Art paper', options: ['130 GSM', '170 GSM'] },
+  'Bill Book': { material: 'Carbonless paper', options: ['Duplicate', 'Triplicate'] },
+  'Ready Stamp': { material: 'Rubber stamp', options: ['Standard'] },
+  'Stamp Pad': { material: 'Ink pad', options: ['Standard'] },
+};
+
 export const printGroups = groups.map((g, gi) => ({
   ...g,
   number: String(gi + 1).padStart(2, '0'),
@@ -114,6 +144,7 @@ export const printGroups = groups.map((g, gi) => ({
     category: g.name,
     slug: slugify(it.spec ? `${it.name} ${it.spec}` : it.name),
     colors: (colourOptions[it.name] || []).map((name) => ({ name, hex: palette[name] })),
+    fabric: fabrics[it.name] || null,
   })),
 }));
 

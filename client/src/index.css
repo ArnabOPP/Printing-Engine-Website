@@ -666,3 +666,16 @@ ul { list-style: none; margin: 0; padding: 0; }
   .pod-colors { gap: 4px; }
   .pod-colors i { width: 14px; height: 14px; }
 }
+
+/* Print on Demand cards: no browser button padding (it left gaps beside the photo) + material info */
+.pod-card, .pod-tile { padding: 0; }
+.pod-card { width: 100%; }
+.pod-fabric { display: grid; gap: 5px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.pod-fabric b { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.pod-fabric-name { font-size: 12px; font-weight: 600; line-height: 1.3; }
+.pod-quals { display: flex; flex-wrap: wrap; gap: 4px; }
+.pod-quals i { font-style: normal; font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); }
+@media (max-width: 800px) {
+  .pod-fabric-name { font-size: 11px; }
+  .pod-quals i { font-size: 10px; padding: 2px 7px; }
+}
