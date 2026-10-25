@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Search, Check, ArrowRight, Shirt, Printer, Coffee, KeyRound, NotebookPen, Pen, Folder, ShoppingBag, BadgeCheck,
-  GlassWater, Frame, CreditCard, Contact, IdCard, Sticker, Tag, FileText, Receipt, Stamp, Layers, Image, Scissors,
-  HardHat, Droplets, ChevronRight,
+  Search, Check, ArrowRight, ArrowUpRight, Shirt, Printer, Coffee, KeyRound, NotebookPen, Pen, Folder, ShoppingBag,
+  BadgeCheck, GlassWater, Frame, CreditCard, Contact, IdCard, Sticker, Tag, FileText, Receipt, Stamp, Layers, Image,
+  Scissors, HardHat, Droplets, ChevronRight, MousePointerClick, Upload, PackageCheck,
 } from 'lucide-react';
 import { printGroups } from '../printProducts.js';
 
@@ -12,12 +12,42 @@ const icons = {
   Contact, IdCard, Sticker, Tag, FileText, Receipt, Stamp, Layers, Image, Scissors, HardHat, Droplets,
 };
 
-function ProductCard({ item, selected, onSelect }) {
+const groupVisual = {
+  't-shirts': { img: '/cat-tee.jpeg', icon: Shirt },
+  'printing-services': { icon: Printer },
+  'customised-products': { img: '/cat-mug.jpeg', icon: Coffee },
+  'cards-identification': { icon: CreditCard },
+  'stickers-labels': { img: '/cat-sticker.jpeg', icon: Sticker },
+  'business-printing': { icon: FileText },
+};
+
+const words = ['T-shirts', 'mugs', 'stickers', 'keychains', 'tote bags', 'visiting cards', 'photo frames'];
+
+const steps = [
+  [MousePointerClick, 'Choose a product'],
+  [Upload, 'Add your design'],
+  [PackageCheck, 'We print & deliver'],
+];
+
+const collage = ['/cat-tee.jpeg', '/cat-mug.jpeg', '/cat-key.jpeg', '/cat-tote.jpeg', '/cat-sticker.jpeg', '/cat-frame.jpeg'];
+
+function RotatingWord() {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const t = setInterval(() => setI((n) => (n + 1) % words.length), 2200);
+    return () => clearInterval(t);
+  }, []);
+  return <span key={i} className="pod-rot">{words[i]}</span>;
+}
+
+function ProductCard({ item, index, selected, onSelect }) {
   const Icon = icons[item.icon] || Shirt;
   return (
     <button
       type="button"
       className={`pod-card${selected ? ' on' : ''}`}
+      style={{ '--i': index }}
       aria-pressed={selected}
       onClick={() => onSelect(item)}
     >
@@ -27,7 +57,11 @@ function ProductCard({ item, selected, onSelect }) {
         ) : (
           <span className="pod-icon"><Icon size={44} strokeWidth={1.5} /></span>
         )}
-        {selected && <span className="pod-check"><Check size={16} strokeWidth={3} /></span>}
+        {selected ? (
+          <span className="pod-check"><Check size={16} strokeWidth={3} /></span>
+        ) : (
+          <span className="pod-go">Customise <ArrowUpRight size={14} /></span>
+        )}
       </span>
       <span className="pod-card-body">
         <strong>{item.name}</strong>
@@ -39,6 +73,7 @@ function ProductCard({ item, selected, onSelect }) {
 
 export default function PrintOnDemand() {
   const navigate = useNavigate();
+  const listRef = useRef(null);
   const [category, setCategory] = useState('all');
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(null);
@@ -58,21 +93,62 @@ export default function PrintOnDemand() {
 
   const total = printGroups.reduce((n, g) => n + g.items.length, 0);
 
+  const pickCategory = (id) => {
+    setCategory(id);
+    setQuery('');
+    requestAnimationFrame(() => listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
+
+  const SelIcon = selected ? icons[selected.icon] || Shirt : Shirt;
+
   return (
     <div className="pod">
       <section className="pod-hero">
-        <div className="wrap">
-          <nav className="pd-crumbs" aria-label="Breadcrumb">
-            <Link to="/">Home</Link><ChevronRight size={12} /><b>Print on Demand</b>
-          </nav>
-          <span className="pill"><i /> PRINT ON DEMAND</span>
-          <h1>What do you want to<br /><span>customise?</span></h1>
-          <p>Choose a product to start. Pick from {total} products across T-shirts, gifts, cards, stickers and business printing.</p>
+        <div className="wrap pod-hero-in">
+          <div className="pod-hero-copy">
+            <nav className="pd-crumbs" aria-label="Breadcrumb">
+              <Link to="/">Home</Link><ChevronRight size={12} /><b>Print on Demand</b>
+            </nav>
+            <span className="pill"><i /> PRINT ON DEMAND</span>
+            <h1>What do you want to<br /><span>customise?</span></h1>
+            <p className="pod-make">Make your own <RotatingWord /></p>
+            <p className="pod-sub">Choose a product to start. {total} products across T-shirts, gifts, cards, stickers and business printing.</p>
+            <ol className="pod-steps" aria-label="How it works">
+              {steps.map(([I, label], n) => (
+                <li key={label} className={n === 0 ? 'on' : ''}>
+                  <span><I size={16} /></span>{label}
+                </li>
+              ))}
+            </ol>
+          </div>
+          <div className="pod-collage" aria-hidden="true">
+            {collage.map((src, n) => (
+              <img key={src} src={src} alt="" className={`c${n + 1}`} />
+            ))}
+          </div>
         </div>
       </section>
 
       <div className="wrap">
-        <div className="pod-toolbar">
+        <div className="pod-tiles">
+          {printGroups.map((g, n) => {
+            const v = groupVisual[g.id];
+            const Ic = v.icon;
+            return (
+              <button key={g.id} type="button" className={`pod-tile${v.img ? ' photo' : ''}`} style={{ '--i': n }} onClick={() => pickCategory(g.id)}>
+                {v.img ? <img src={v.img} alt="" loading="lazy" /> : <span className="pod-tile-icon"><Ic size={54} strokeWidth={1.4} /></span>}
+                <span className="pod-tile-shade" />
+                <span className="pod-tile-text">
+                  <small>{g.number}</small>
+                  <strong>{g.name}</strong>
+                  <em>{g.items.length} products <ArrowRight size={13} /></em>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="pod-toolbar" ref={listRef}>
           <div className="pod-chips" role="tablist" aria-label="Product categories">
             <button role="tab" aria-selected={category === 'all'} className={category === 'all' ? 'on' : ''} onClick={() => setCategory('all')}>
               All <small>{total}</small>
@@ -92,7 +168,7 @@ export default function PrintOnDemand() {
         {groups.length === 0 && <p className="pod-empty">No products match “{query}”. Try a different word or category.</p>}
 
         {groups.map((g) => (
-          <section className="pod-group" key={g.id} aria-labelledby={`g-${g.id}`}>
+          <section className="pod-group" key={`${g.id}-${category}`} aria-labelledby={`g-${g.id}`}>
             <div className="pod-group-head">
               <span className="pod-num">{g.number}</span>
               <div>
@@ -101,8 +177,8 @@ export default function PrintOnDemand() {
               </div>
             </div>
             <div className="pod-grid">
-              {g.items.map((it) => (
-                <ProductCard key={it.slug} item={it} selected={selected?.slug === it.slug} onSelect={setSelected} />
+              {g.items.map((it, n) => (
+                <ProductCard key={it.slug} item={it} index={n} selected={selected?.slug === it.slug} onSelect={setSelected} />
               ))}
             </div>
           </section>
@@ -111,9 +187,14 @@ export default function PrintOnDemand() {
 
       <div className={`pod-bar${selected ? ' show' : ''}`} aria-hidden={!selected}>
         <div className="wrap pod-bar-in">
-          <div>
-            <small>Selected</small>
-            <strong>{selected ? `${selected.name}${selected.spec ? ` — ${selected.spec}` : ''}` : ''}</strong>
+          <div className="pod-bar-sel">
+            <span className="pod-bar-thumb">
+              {selected?.img ? <img src={selected.img} alt="" /> : <SelIcon size={22} />}
+            </span>
+            <div>
+              <small>Selected · step 1 of 3</small>
+              <strong>{selected ? `${selected.name}${selected.spec ? ` — ${selected.spec}` : ''}` : ''}</strong>
+            </div>
           </div>
           <button className="btn btn-lime-solid" tabIndex={selected ? 0 : -1} onClick={() => navigate(`/customise/${selected.slug}`)}>
             Continue <ArrowRight size={16} />
