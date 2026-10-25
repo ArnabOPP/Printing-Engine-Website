@@ -83,6 +83,29 @@ const groups = [
   },
 ];
 
+// Colour options per product. These are PLACEHOLDERS: edit the lists below to match what you really stock.
+// Products not listed here (services, cards, stickers, keychains, badges…) show no swatches.
+const palette = {
+  white: '#ffffff', black: '#161616', navy: '#1f2a55', red: '#d32f2f', 'royal blue': '#2b59d9', grey: '#9aa0a6',
+  green: '#1f6b3a', yellow: '#f2c230', maroon: '#6d1a2a', natural: '#e8dcc0', brown: '#6b4a2f', silver: '#c9ccd1', pink: '#f08ca4',
+};
+
+const colourOptions = {
+  'Cotton T-Shirt': ['white', 'black', 'navy', 'red', 'royal blue', 'grey', 'green', 'yellow'],
+  'Polo T-Shirt': ['white', 'black', 'navy', 'red', 'royal blue', 'grey'],
+  'Regular T-Shirt': ['white', 'black', 'navy', 'red', 'royal blue', 'grey', 'maroon'],
+  'Dri-Fit T-Shirt': ['white', 'black', 'navy', 'royal blue', 'red'],
+  'Dot-Net T-Shirt': ['white', 'black', 'navy', 'royal blue', 'red', 'grey'],
+  'Oversized T-Shirt': ['white', 'black', 'natural', 'grey', 'green', 'pink'],
+  Caps: ['black', 'white', 'navy', 'red', 'royal blue'],
+  'Cups / Mugs': ['white', 'black', 'red', 'royal blue'],
+  Notebooks: ['black', 'navy', 'maroon'],
+  Pens: ['black', 'royal blue', 'white', 'red'],
+  'Tote Bags': ['natural', 'black', 'navy', 'white'],
+  Bottles: ['white', 'black', 'silver', 'royal blue'],
+  'Photo Frame': ['black', 'brown', 'white'],
+};
+
 export const printGroups = groups.map((g, gi) => ({
   ...g,
   number: String(gi + 1).padStart(2, '0'),
@@ -90,6 +113,7 @@ export const printGroups = groups.map((g, gi) => ({
     ...it,
     category: g.name,
     slug: slugify(it.spec ? `${it.name} ${it.spec}` : it.name),
+    colors: (colourOptions[it.name] || []).map((name) => ({ name, hex: palette[name] })),
   })),
 }));
 

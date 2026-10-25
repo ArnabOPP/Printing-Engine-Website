@@ -66,6 +66,14 @@ function ProductCard({ item, index, selected, onSelect }) {
       <span className="pod-card-body">
         <strong>{item.name}</strong>
         {item.spec && <small>{item.spec}</small>}
+        {item.colors.length > 0 && (
+          <span className="pod-colors" role="img" aria-label={`Colours: ${item.colors.map((c) => c.name).join(', ')}`}>
+            {item.colors.slice(0, 6).map((c) => (
+              <i key={c.name} title={c.name} style={{ background: c.hex }} />
+            ))}
+            {item.colors.length > 6 && <em>+{item.colors.length - 6}</em>}
+          </span>
+        )}
       </span>
     </button>
   );

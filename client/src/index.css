@@ -657,3 +657,12 @@ ul { list-style: none; margin: 0; padding: 0; }
   .pod-steps li { font-size: 11px; padding: 4px 12px 4px 4px; }
   .pod-steps li span { width: 24px; height: 24px; }
 }
+
+/* Print on Demand: colour swatches on product cards */
+.pod-colors { display: flex; align-items: center; gap: 5px; margin-top: 8px; }
+.pod-colors i { width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(128, 128, 128, 0.55); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12) inset; }
+.pod-colors em { font-style: normal; font-size: 11px; font-weight: 600; color: var(--muted); margin-left: 2px; }
+@media (max-width: 800px) {
+  .pod-colors { gap: 4px; }
+  .pod-colors i { width: 14px; height: 14px; }
+}
