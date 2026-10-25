@@ -107,3 +107,22 @@
   .st-bar-l button span { display: none; }
   .st-sides { flex: 1; }
 }
+
+/* ===== Print type (normal / full body) and clipping ===== */
+.st-clip { position: absolute; inset: 0; overflow: hidden; }
+.st-clip.full { -webkit-mask-image: var(--mask); mask-image: var(--mask); -webkit-mask-size: contain; mask-size: contain; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; }
+.st-chrome { position: absolute; inset: 0; pointer-events: none; z-index: 6; }
+.st-chrome-el { pointer-events: auto; }
+.st-ghost { visibility: hidden; }
+.st-info { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-weight: 600; }
+
+.st-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.st-mode button { text-align: left; display: grid; gap: 3px; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 14px; background: var(--surface); }
+.st-mode button strong { font-size: 14px; }
+.st-mode button small { font-size: 12px; color: var(--muted); line-height: 1.35; }
+.st-mode button:hover { border-color: var(--text); }
+.st-mode button.on { border-color: var(--lime); box-shadow: 0 0 0 1px var(--lime); }
+@media (max-width: 800px) {
+  .st-mode { grid-template-columns: 1fr; gap: 8px; }
+  .st-mode button { padding: 10px 12px; }
+}

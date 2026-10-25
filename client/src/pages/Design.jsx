@@ -12,10 +12,18 @@ import { useCart } from '../context/CartContext.jsx';
 
 /* ---------- configuration ---------- */
 
-// Where the print goes on the tee photo, as % of the photo box.
+// Normal print: where the print goes on the tee photo, as % of the photo box.
 const TEE_AREAS = {
-  front: { left: 33, top: 23, width: 34, height: 42 },
-  back: { left: 31, top: 17, width: 38, height: 50 },
+  front: { left: 28, top: 20, width: 44, height: 52 },
+  back: { left: 26, top: 13, width: 48, height: 60 },
+};
+// Full body print: the whole photo box. Artwork is then clipped to the shirt's own outline.
+const FULL_AREA = { left: 0, top: 0, width: 100, height: 100 };
+const FLAT_AREA = { left: 0, top: 0, width: 100, height: 100 };
+
+const areaFor = (isTee, mode, side) => {
+  if (!isTee) return FLAT_AREA;
+  return mode === 'full' ? FULL_AREA : TEE_AREAS[side];
 };
 
 // Width / height of the flat canvas for products that are not T-shirts (matched on the product label).
@@ -37,6 +45,11 @@ const fonts = [
 
 const palette = ['#ffffff', '#161616', '#b6ff00', '#d32f2f', '#2b59d9', '#f2c230', '#f08ca4', '#ff7a1a'];
 
+const printModes = [
+  { id: 'normal', title: 'Normal print', text: 'Print inside the chest or back area. Anything outside the area is cut off.' },
+  { id: 'full', title: 'Full body print', text: 'All-over print across the whole shirt. Your artwork is clipped to the shirt’s shape.' },
+];
+
 const uid = () => Math.random().toString(36).slice(2, 9);
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const isLight = (hex) => {
@@ -51,20 +64,72 @@ const readConfig = (slug) => {
 const readSaved = (slug) => {
   try {
     const d = JSON.parse(localStorage.getItem(`po-design-${slug}`) || 'null');
-    if (d && Array.isArray(d.front) && Array.isArray(d.back)) return d;
+    if (d && Array.isArray(d.front) && Array.isArray(d.back)) return { front: d.front, back: d.back, mode: d.mode === 'full' ? 'full' : 'normal' };
   } catch { /* ignore */ }
-  return { front: [], back: [] };
+  return { front: [], back: [], mode: 'normal' };
 };
 
-/* ---------- one layer on the canvas (drag, resize, rotate) ---------- */
+// Re-express layers from one print area to another so they stay in the same place and size on the shirt.
+function convertLayers(layers, a, b) {
+  const k = a.width / b.width;
+  return layers.map((l) => {
+    const px = a.left + (l.x / 100) * a.width;
+    const py = a.top + (l.y / 100) * a.height;
+    const next = { ...l, x: ((px - b.left) / b.width) * 100, y: ((py - b.top) / b.height) * 100 };
+    if (l.w != null) next.w = l.w * k;
+    if (l.text) next.text = { ...l.text, size: l.text.size * k };
+    return next;
+  });
+}
+
+/* ---------- layers on the canvas ---------- */
 
 // Keep receiving pointer events while dragging outside the element (ignored if the browser refuses).
 const capture = (el, id) => {
   try { el.setPointerCapture(id); } catch { /* ignore */ }
 };
 
-function Layer({ layer, selected, areaRef, onSelect, onBegin, onChange }) {
-  const ref = useRef(null);
+function layerStyle(layer) {
+  const style = {
+    left: `${layer.x}%`,
+    top: `${layer.y}%`,
+    opacity: layer.opacity,
+    transform: `translate(-50%, -50%) rotate(${layer.rot}deg)`,
+  };
+  if (layer.type === 'image') { style.width = `${layer.w}%`; style.aspectRatio = `1 / ${layer.image.ratio}`; }
+  if (layer.type === 'shape') { style.width = `${layer.w}%`; style.aspectRatio = '1 / 1'; }
+  return style;
+}
+
+function LayerContent({ layer, measure }) {
+  const m = measure ? { 'data-content': true } : {};
+  if (layer.type === 'text') {
+    const t = layer.text;
+    return (
+      <div
+        {...m}
+        className="st-text"
+        style={{
+          fontFamily: t.font, fontSize: `${t.size}cqw`, color: t.color, fontWeight: t.bold ? 800 : 500,
+          fontStyle: t.italic ? 'italic' : 'normal', textTransform: t.upper ? 'uppercase' : 'none',
+        }}
+      >
+        {t.value || ' '}
+      </div>
+    );
+  }
+  if (layer.type === 'image') {
+    return (
+      <div {...m} className="st-fill">
+        <img src={layer.image.src} alt={layer.image.name} draggable={false} style={{ transform: layer.flip ? 'scaleX(-1)' : undefined }} />
+      </div>
+    );
+  }
+  return <div {...m} className="st-fill"><ShapeSvg kind={layer.shape.kind} fill={layer.shape.fill} /></div>;
+}
+
+// Shared pointer logic: move, resize (uniform) and rotate.
+function useDrag({ layer, areaRef, ref, onSelect, onBegin, onChange }) {
   const drag = useRef(null);
 
   const centre = () => {
@@ -75,7 +140,7 @@ function Layer({ layer, selected, areaRef, onSelect, onBegin, onChange }) {
   const startMove = (e) => {
     if (e.button > 0) return;
     e.stopPropagation();
-    onSelect(layer.id);
+    onSelect?.(layer.id);
     onBegin();
     const a = areaRef.current.getBoundingClientRect();
     drag.current = { mode: 'move', sx: e.clientX, sy: e.clientY, x: layer.x, y: layer.y, aw: a.width, ah: a.height };
@@ -86,10 +151,7 @@ function Layer({ layer, selected, areaRef, onSelect, onBegin, onChange }) {
     e.stopPropagation();
     onBegin();
     const c = centre();
-    drag.current = {
-      mode, c, d0: Math.hypot(e.clientX - c.x, e.clientY - c.y) || 1,
-      w0: layer.w, size0: layer.text?.size,
-    };
+    drag.current = { mode, c, d0: Math.hypot(e.clientX - c.x, e.clientY - c.y) || 1, w0: layer.w, size0: layer.text?.size };
     capture(e.currentTarget, e.pointerId);
   };
 
@@ -103,8 +165,8 @@ function Layer({ layer, selected, areaRef, onSelect, onBegin, onChange }) {
       }, false);
     } else if (d.mode === 'size') {
       const f = clamp(Math.hypot(e.clientX - d.c.x, e.clientY - d.c.y) / d.d0, 0.1, 8);
-      if (layer.type === 'text') onChange(layer.id, (l) => ({ text: { ...l.text, size: clamp(d.size0 * f, 2, 60) } }), false);
-      else onChange(layer.id, { w: clamp(d.w0 * f, 4, 160) }, false);
+      if (layer.type === 'text') onChange(layer.id, (l) => ({ text: { ...l.text, size: clamp(d.size0 * f, 2, 90) } }), false);
+      else onChange(layer.id, { w: clamp(d.w0 * f, 4, 200) }, false);
     } else if (d.mode === 'rotate') {
       let deg = (Math.atan2(e.clientY - d.c.y, e.clientX - d.c.x) * 180) / Math.PI + 90;
       if (deg > 180) deg -= 360;
@@ -116,58 +178,46 @@ function Layer({ layer, selected, areaRef, onSelect, onBegin, onChange }) {
 
   const end = () => { drag.current = null; };
 
-  const style = {
-    left: `${layer.x}%`,
-    top: `${layer.y}%`,
-    opacity: layer.opacity,
-    transform: `translate(-50%, -50%) rotate(${layer.rot}deg)`,
-  };
-  if (layer.type === 'image') { style.width = `${layer.w}%`; style.aspectRatio = `1 / ${layer.image.ratio}`; }
-  if (layer.type === 'shape') { style.width = `${layer.w}%`; style.aspectRatio = '1 / 1'; }
+  return { startMove, startHandle, move, end };
+}
 
-  let content = null;
-  if (layer.type === 'text') {
-    const t = layer.text;
-    content = (
-      <div
-        data-content
-        className="st-text"
-        style={{
-          fontFamily: t.font, fontSize: `${t.size}cqw`, color: t.color, fontWeight: t.bold ? 800 : 500,
-          fontStyle: t.italic ? 'italic' : 'normal', textTransform: t.upper ? 'uppercase' : 'none',
-        }}
-      >
-        {t.value || ' '}
-      </div>
-    );
-  } else if (layer.type === 'image') {
-    content = (
-      <div data-content className="st-fill">
-        <img src={layer.image.src} alt={layer.image.name} draggable={false} style={{ transform: layer.flip ? 'scaleX(-1)' : undefined }} />
-      </div>
-    );
-  } else {
-    content = <div data-content className="st-fill"><ShapeSvg kind={layer.shape.kind} fill={layer.shape.fill} /></div>;
-  }
-
+// The artwork itself. It lives inside the clipping box, so it is cut off at the print area.
+function Layer({ layer, areaRef, onSelect, onBegin, onChange }) {
+  const ref = useRef(null);
+  const d = useDrag({ layer, areaRef, ref, onSelect, onBegin, onChange });
   return (
     <div
       ref={ref}
-      className={`st-layer${selected ? ' on' : ''}`}
-      style={style}
-      onPointerDown={startMove}
-      onPointerMove={move}
-      onPointerUp={end}
-      onPointerCancel={end}
+      className="st-layer"
+      style={layerStyle(layer)}
+      onPointerDown={d.startMove}
+      onPointerMove={d.move}
+      onPointerUp={d.end}
+      onPointerCancel={d.end}
     >
-      {content}
-      {selected && (
-        <>
-          <span className="st-box" />
-          <button type="button" className="st-handle st-rot" aria-label="Rotate" onPointerDown={startHandle('rotate')} />
-          <button type="button" className="st-handle st-size" aria-label="Resize" onPointerDown={startHandle('size')} />
-        </>
-      )}
+      <LayerContent layer={layer} measure />
+    </div>
+  );
+}
+
+// Selection box and handles. Drawn outside the clipping box so they stay visible at the edge.
+function Chrome({ layer, areaRef, onBegin, onChange }) {
+  const ref = useRef(null);
+  const d = useDrag({ layer, areaRef, ref, onBegin, onChange });
+  return (
+    <div
+      ref={ref}
+      className="st-layer st-chrome-el"
+      style={layerStyle(layer)}
+      onPointerDown={d.startMove}
+      onPointerMove={d.move}
+      onPointerUp={d.end}
+      onPointerCancel={d.end}
+    >
+      <div className="st-ghost" aria-hidden="true"><LayerContent layer={layer} /></div>
+      <span className="st-box" />
+      <button type="button" className="st-handle st-rot" aria-label="Rotate" onPointerDown={d.startHandle('rotate')} />
+      <button type="button" className="st-handle st-size" aria-label="Resize" onPointerDown={d.startHandle('size')} />
     </div>
   );
 }
@@ -198,11 +248,15 @@ function Studio({ product, cfg, slug }) {
   const areaRef = useRef(null);
   const fileRef = useRef(null);
 
+  const mode = isTee ? design.mode : 'normal';
+  const full = mode === 'full';
   const layers = design[side];
   const selected = layers.find((l) => l.id === selectedId) || null;
   const aspect = isTee ? 1 : flatRatio(cfg.product);
-  const area = isTee ? TEE_AREAS[side] : { left: 0, top: 0, width: 100, height: 100 };
+  const area = areaFor(isTee, mode, side);
+  const areaAspect = (area.width / area.height) * aspect; // width / height of the print area
   const totalLayers = design.front.length + design.back.length;
+  const garmentSrc = side === 'front' ? '/tee-front.png' : '/tee-back.png';
 
   /* ----- edit helpers ----- */
   const update = (fn, push = true) => set((d) => ({ ...d, [side]: fn(d[side]) }), push);
@@ -220,6 +274,17 @@ function Studio({ product, cfg, slug }) {
     return c;
   });
 
+  const chooseMode = (next) => {
+    if (next === design.mode) return;
+    set((d) => ({
+      ...d,
+      mode: next,
+      front: convertLayers(d.front, areaFor(true, d.mode, 'front'), areaFor(true, next, 'front')),
+      back: convertLayers(d.back, areaFor(true, d.mode, 'back'), areaFor(true, next, 'back')),
+    }));
+    setAdded(false);
+  };
+
   const addText = () => addLayer({
     id: uid(), type: 'text', x: 50, y: 50, rot: 0, opacity: 1,
     text: { value: 'Your text', font: fonts[0].css, size: 12, color: ink, bold: true, italic: false, upper: false },
@@ -234,10 +299,15 @@ function Studio({ product, cfg, slug }) {
     reader.onload = () => {
       const src = reader.result;
       const img = new window.Image();
-      img.onload = () => addLayer({
-        id: uid(), type: 'image', x: 50, y: 50, w: 60, rot: 0, opacity: 1, flip: false,
-        image: { src, ratio: img.naturalHeight / img.naturalWidth || 1, nw: img.naturalWidth, name: file.name },
-      });
+      img.onload = () => {
+        const ratio = img.naturalHeight / img.naturalWidth || 1;
+        // Start as large as is comfortable, but never bigger than the print area.
+        const w = Math.min(full ? 70 : 85, 92 / (ratio * (area.width / area.height) * aspect));
+        addLayer({
+          id: uid(), type: 'image', x: 50, y: 50, w: Math.max(w, 8), rot: 0, opacity: 1, flip: false,
+          image: { src, ratio, nw: img.naturalWidth, name: file.name },
+        });
+      };
       img.onerror = () => setNotice('That image could not be read. Try a different file.');
       img.src = src;
     };
@@ -271,10 +341,10 @@ function Studio({ product, cfg, slug }) {
     return () => clearTimeout(t);
   }, [design, slug, totalLayers]);
 
-  // Warn when something sticks out of the print area.
+  // In normal print, warn when something sticks out of the print area (it will be cut off).
   useLayoutEffect(() => {
     const el = areaRef.current;
-    if (!el) return;
+    if (!el || full) { setOutside(false); return; }
     const a = el.getBoundingClientRect();
     let out = false;
     el.querySelectorAll('[data-content]').forEach((c) => {
@@ -282,7 +352,7 @@ function Studio({ product, cfg, slug }) {
       if (r.left < a.left - 2 || r.right > a.right + 2 || r.top < a.top - 2 || r.bottom > a.bottom + 2) out = true;
     });
     setOutside(out);
-  }, [layers, side]);
+  }, [layers, side, full]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -367,6 +437,17 @@ function Studio({ product, cfg, slug }) {
 
         {/* stage */}
         <div className="st-main">
+          {isTee && (
+            <div className="st-mode" role="radiogroup" aria-label="Print type">
+              {printModes.map((m) => (
+                <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} className={mode === m.id ? 'on' : ''} onClick={() => chooseMode(m.id)}>
+                  <strong>{m.title}</strong>
+                  <small>{m.text}</small>
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="st-bar">
             <div className="st-bar-l">
               <button type="button" onClick={undo} disabled={!canUndo} aria-label="Undo"><Undo2 size={17} /></button>
@@ -382,9 +463,11 @@ function Studio({ product, cfg, slug }) {
                 ))}
               </div>
             )}
-            <label className="st-guide-toggle">
-              <input type="checkbox" checked={guide} onChange={(e) => setGuide(e.target.checked)} /> Print area
-            </label>
+            {!full && (
+              <label className="st-guide-toggle">
+                <input type="checkbox" checked={guide} onChange={(e) => setGuide(e.target.checked)} /> Print area
+              </label>
+            )}
           </div>
 
           {shapesOpen && (
@@ -401,10 +484,10 @@ function Studio({ product, cfg, slug }) {
           {notice && <p className="st-alert" role="alert"><AlertTriangle size={15} /> {notice}</p>}
 
           <div className="st-canvas" onPointerDown={() => setSelectedId(null)}>
-            <div className="st-stage" style={{ width: `min(100%, calc(66vh * ${aspect}))`, aspectRatio: String(aspect) }}>
+            <div className="st-stage" style={{ width: `min(100%, calc(74vh * ${aspect}))`, aspectRatio: String(aspect) }}>
               {isTee ? (
                 <div className="st-garment">
-                  <TeePhoto src={side === 'front' ? '/tee-front.png' : '/tee-back.png'} colour={hex} alt={`${label}, ${side}`} />
+                  <TeePhoto src={garmentSrc} colour={hex} alt={`${label}, ${side}`} />
                 </div>
               ) : (
                 <div className="st-flat" style={{ background: hex }} />
@@ -414,18 +497,15 @@ function Studio({ product, cfg, slug }) {
                 className="st-area"
                 style={{ left: `${area.left}%`, top: `${area.top}%`, width: `${area.width}%`, height: `${area.height}%` }}
               >
-                {guide && <span className="st-guide"><em>Print area{isTee ? ` · ${side}` : ''}</em></span>}
-                {layers.map((l) => (
-                  <Layer
-                    key={l.id}
-                    layer={l}
-                    selected={l.id === selectedId}
-                    areaRef={areaRef}
-                    onSelect={setSelectedId}
-                    onBegin={checkpoint}
-                    onChange={patch}
-                  />
-                ))}
+                {guide && !full && <span className="st-guide"><em>Print area{isTee ? ` · ${side}` : ''}</em></span>}
+                <div className={`st-clip${full ? ' full' : ''}`} style={full ? { '--mask': `url("${garmentSrc}")` } : undefined}>
+                  {layers.map((l) => (
+                    <Layer key={l.id} layer={l} areaRef={areaRef} onSelect={setSelectedId} onBegin={checkpoint} onChange={patch} />
+                  ))}
+                </div>
+                <div className="st-chrome">
+                  {selected && <Chrome key={selected.id} layer={selected} areaRef={areaRef} onBegin={checkpoint} onChange={patch} />}
+                </div>
               </div>
               {!totalLayers && (
                 <p className="st-empty">Start with <b>Upload</b>, <b>Text</b> or <b>Shapes</b></p>
@@ -434,7 +514,8 @@ function Studio({ product, cfg, slug }) {
           </div>
 
           <div className="st-status">
-            {outside && <span className="st-warn"><AlertTriangle size={14} /> Part of your design is outside the print area and may be cut off.</span>}
+            {full && <span className="st-info"><Info size={14} /> Full body print: your artwork covers the whole shirt and is clipped to its shape.</span>}
+            {outside && <span className="st-warn"><AlertTriangle size={14} /> Part of your design is outside the print area and will be cut off.</span>}
             {selected?.type === 'image' && selected.image.nw < 800 && (
               <span className="st-warn"><Info size={14} /> This image is small ({selected.image.nw}px wide) and may print blurry.</span>
             )}
@@ -468,7 +549,7 @@ function Studio({ product, cfg, slug }) {
                   </div>
                 </div>
                 <label>Size
-                  {slider({ min: 3, max: 45, step: 0.5, value: selected.text.size, onChange: (e) => patch(selected.id, (l) => ({ text: { ...l.text, size: Number(e.target.value) } }), false) })}
+                  {slider({ min: 3, max: 60, step: 0.5, value: selected.text.size, onChange: (e) => patch(selected.id, (l) => ({ text: { ...l.text, size: Number(e.target.value) } }), false) })}
                 </label>
                 <div>
                   <span className="st-lbl">Colour</span>
@@ -491,7 +572,12 @@ function Studio({ product, cfg, slug }) {
                 <p className="st-file" title={selected.image.name}>{selected.image.name}</p>
                 <div className="st-toggles">
                   <button type="button" onClick={() => patch(selected.id, (l) => ({ flip: !l.flip }))}><FlipHorizontal2 size={16} /> Flip</button>
-                  <button type="button" onClick={() => patch(selected.id, { w: 60, x: 50, y: 50, rot: 0 })}><RotateCcw size={15} /> Reset</button>
+                  <button
+                    type="button"
+                    onClick={() => patch(selected.id, (l) => ({
+                      w: Math.max(Math.min(full ? 70 : 85, 92 / (l.image.ratio * (area.width / area.height) * aspect)), 8), x: 50, y: 50, rot: 0,
+                    }))}
+                  ><RotateCcw size={15} /> Fit to area</button>
                 </div>
               </div>
             )}
@@ -541,6 +627,7 @@ function Studio({ product, cfg, slug }) {
               {cfg.audience && (<><dt>For</dt><dd>{cfg.audience}</dd></>)}
               {sizeSummary && (<><dt>Sizes</dt><dd>{sizeSummary}</dd></>)}
               <dt>Quantity</dt><dd>{cfg.quantity}</dd>
+              {isTee && (<><dt>Print</dt><dd>{full ? 'Full body print' : 'Normal print'}</dd></>)}
               <dt>Design</dt><dd>{isTee ? `Front ${design.front.length} · Back ${design.back.length}` : `${design.front.length} item${design.front.length === 1 ? '' : 's'}`}</dd>
             </dl>
 
