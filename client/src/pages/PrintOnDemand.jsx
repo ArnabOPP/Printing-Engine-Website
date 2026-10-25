@@ -1,16 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Search, Check, ArrowRight, ArrowUpRight, Shirt, Printer, Coffee, KeyRound, NotebookPen, Pen, Folder, ShoppingBag,
-  BadgeCheck, GlassWater, Frame, CreditCard, Contact, IdCard, Sticker, Tag, FileText, Receipt, Stamp, Layers, Image,
-  Scissors, HardHat, Droplets, ChevronRight, MousePointerClick, Upload, PackageCheck,
+  Search, Check, ArrowRight, ArrowUpRight, Shirt, Printer, Coffee, CreditCard, Sticker, FileText,
+  ChevronRight, MousePointerClick, Upload, PackageCheck,
 } from 'lucide-react';
 import { printGroups } from '../printProducts.js';
-
-const icons = {
-  Shirt, Printer, Coffee, KeyRound, NotebookPen, Pen, Folder, ShoppingBag, BadgeCheck, GlassWater, Frame, CreditCard,
-  Contact, IdCard, Sticker, Tag, FileText, Receipt, Stamp, Layers, Image, Scissors, HardHat, Droplets,
-};
+import { productIcons as icons } from '../productIcons.js';
 
 const groupVisual = {
   't-shirts': { img: '/cat-tee.jpeg', icon: Shirt },
