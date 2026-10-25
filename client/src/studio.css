@@ -51,8 +51,8 @@
 :root[data-theme="dark"] .st-warn { color: #fbbf24; }
 .st-save { margin-left: auto; color: var(--muted); }
 
-.st-panel { display: grid; gap: 14px; position: sticky; top: 92px; max-height: calc(100vh - 110px); overflow-y: auto; scrollbar-width: thin; padding-right: 2px; }
-.st-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
+.st-panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; }
+.st-card { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
 .st-card h3 { font-size: 15px; font-weight: 800; margin-bottom: 12px; text-transform: capitalize; }
 .st-fields { display: grid; gap: 14px; }
 .st-fields label, .st-lbl { display: grid; gap: 6px; font-size: 12px; font-weight: 700; color: var(--muted); }
@@ -77,13 +77,15 @@
 .st-actions button:hover { border-color: var(--text); }
 
 .st-layers { display: grid; gap: 6px; list-style: none; margin: 0; padding: 0; max-height: 170px; overflow-y: auto; }
-.st-layers button { width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); font-size: 13px; text-align: left; }
-.st-layers button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-layers li { min-width: 0; }
+.st-layers button { width: 100%; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); font-size: 13px; text-align: left; }
+.st-layers button svg { flex: none; }
+.st-layers button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .st-layers li.on button { border-color: var(--lime); box-shadow: 0 0 0 1px var(--lime); }
 
 .st-order dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 13px; margin: 0 0 14px; }
 .st-order dt { color: var(--muted); }
-.st-order dd { margin: 0; font-weight: 600; text-align: right; text-transform: capitalize; }
+.st-order dd { margin: 0; min-width: 0; font-weight: 600; text-align: right; text-transform: capitalize; overflow-wrap: anywhere; }
 .st-order .opt-go { margin-top: 4px; }
 .st-order .opt-back { margin-top: 12px; }
 .st-done { padding: 12px; border-radius: 12px; border: 1px solid var(--lime); background: color-mix(in srgb, var(--lime) 14%, transparent); }
