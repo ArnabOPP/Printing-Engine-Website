@@ -46,7 +46,7 @@ const fonts = [
 const palette = ['#ffffff', '#161616', '#b6ff00', '#d32f2f', '#2b59d9', '#f2c230', '#f08ca4', '#ff7a1a'];
 
 const printModes = [
-  { id: 'normal', title: 'Normal print', text: 'Print inside the chest or back area. Anything outside the area is cut off.' },
+  { id: 'normal', title: 'Normal print', text: 'Print inside the chest or back area. Your artwork stays inside the area and can’t go beyond it.' },
   { id: 'full', title: 'Full body print', text: 'All-over print across the whole shirt. Your artwork is clipped to the shirt’s shape.' },
 ];
 
@@ -188,6 +188,7 @@ function Layer({ layer, areaRef, onSelect, onBegin, onChange }) {
   return (
     <div
       ref={ref}
+      data-id={layer.id}
       className="st-layer"
       style={layerStyle(layer)}
       onPointerDown={d.startMove}
@@ -241,7 +242,6 @@ function Studio({ product, cfg, slug }) {
   const [guide, setGuide] = useState(true);
   const [notice, setNotice] = useState('');
   const [saveNote, setSaveNote] = useState('');
-  const [outside, setOutside] = useState(false);
   const [added, setAdded] = useState(false);
   const [askEmpty, setAskEmpty] = useState(false);
 
@@ -341,17 +341,40 @@ function Studio({ product, cfg, slug }) {
     return () => clearTimeout(t);
   }, [design, slug, totalLayers]);
 
-  // In normal print, warn when something sticks out of the print area (it will be cut off).
+  // Normal print: artwork can never leave the print area. After every change, shrink anything that is
+  // too big to fit and nudge the rest back inside (rotation is taken into account).
   useLayoutEffect(() => {
+    if (full) return;
     const el = areaRef.current;
-    if (!el || full) { setOutside(false); return; }
-    const a = el.getBoundingClientRect();
-    let out = false;
-    el.querySelectorAll('[data-content]').forEach((c) => {
-      const r = c.getBoundingClientRect();
-      if (r.left < a.left - 2 || r.right > a.right + 2 || r.top < a.top - 2 || r.bottom > a.bottom + 2) out = true;
+    if (!el) return;
+    const aw = el.clientWidth;
+    const ah = el.clientHeight;
+    if (!aw || !ah) return;
+    let changed = false;
+    const fixed = layers.map((l) => {
+      const node = el.querySelector(`[data-id="${l.id}"]`);
+      if (!node) return l;
+      const rad = (l.rot * Math.PI) / 180;
+      const cos = Math.abs(Math.cos(rad));
+      const sin = Math.abs(Math.sin(rad));
+      const bw = node.offsetWidth * cos + node.offsetHeight * sin;
+      const bh = node.offsetWidth * sin + node.offsetHeight * cos;
+      if (!bw || !bh) return l;
+      const k = Math.min(1, aw / bw, ah / bh);
+      const hw = (bw * k) / 2;
+      const hh = (bh * k) / 2;
+      const x = (clamp((l.x / 100) * aw, hw, aw - hw) / aw) * 100;
+      const y = (clamp((l.y / 100) * ah, hh, ah - hh) / ah) * 100;
+      if (k > 0.998 && Math.abs(x - l.x) < 0.02 && Math.abs(y - l.y) < 0.02) return l;
+      changed = true;
+      const next = { ...l, x, y };
+      if (k <= 0.998) {
+        if (l.type === 'text') next.text = { ...l.text, size: l.text.size * k };
+        else next.w = l.w * k;
+      }
+      return next;
     });
-    setOutside(out);
+    if (changed) update(() => fixed, false);
   }, [layers, side, full]);
 
   useEffect(() => {
@@ -515,7 +538,6 @@ function Studio({ product, cfg, slug }) {
 
           <div className="st-status">
             {full && <span className="st-info"><Info size={14} /> Full body print: your artwork covers the whole shirt and is clipped to its shape.</span>}
-            {outside && <span className="st-warn"><AlertTriangle size={14} /> Part of your design is outside the print area and will be cut off.</span>}
             {selected?.type === 'image' && selected.image.nw < 800 && (
               <span className="st-warn"><Info size={14} /> This image is small ({selected.image.nw}px wide) and may print blurry.</span>
             )}
