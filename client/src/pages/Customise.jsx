@@ -53,6 +53,8 @@ export default function Customise() {
   const materials = product?.fabric?.options || [];
   const colours = product?.colors || [];
   const aud = audiences.find((a) => a.id === audience);
+  // Some products are only made for some groups (for example no Women's range); the rest get all four.
+  const availableAudiences = product?.audiences ? audiences.filter((a) => product.audiences.includes(a.id)) : audiences;
   const PreviewIcon = productIcons[product?.icon] || Shirt;
 
   useEffect(() => {
@@ -172,7 +174,7 @@ export default function Customise() {
             <section className="opt-card" aria-labelledby="o-for">
               <StepHead n={stepNo('audience')} title="Who is it for?" hint="This decides the fit and the sizes you can choose." done={!!audience} />
               <div className="opt-aud" role="radiogroup" aria-label="Made for">
-                {audiences.map((a) => {
+                {availableAudiences.map((a) => {
                   const I = a.icon;
                   return (
                     <button key={a.id} role="radio" aria-checked={a.id === audience} className={`opt-choice aud${a.id === audience ? ' on' : ''}`} onClick={() => pickAudience(a.id)}>

@@ -139,6 +139,12 @@ const prices = {
   'Regular T-Shirt': { base: 230, normalPerSqIn: 1, fullPerSqIn: 0.75 },
 };
 
+// Who a product is made for (T-shirts only). A product not listed here is offered for everyone:
+// men, women, unisex and kids.
+const audienceOptions = {
+  'Regular T-Shirt': ['men', 'unisex', 'kids'],
+};
+
 export const printGroups = groups.map((g, gi) => ({
   ...g,
   number: String(gi + 1).padStart(2, '0'),
@@ -149,6 +155,7 @@ export const printGroups = groups.map((g, gi) => ({
     colors: (colourOptions[it.name] || []).map((name) => ({ name, hex: palette[name] })),
     fabric: fabrics[it.name] || null,
     pricing: prices[it.name] || null,
+    audiences: audienceOptions[it.name] || null,
   })),
 }));
 

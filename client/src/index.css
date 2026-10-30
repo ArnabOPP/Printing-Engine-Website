@@ -714,7 +714,7 @@ ul { list-style: none; margin: 0; padding: 0; }
 .opt-swatches button:hover { border-color: var(--border); }
 .opt-swatches button.on { border-color: var(--lime); background: var(--bg); }
 
-.opt-aud { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.opt-aud { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
 .opt-choice.aud { justify-items: start; padding-top: 16px; }
 .opt-aud-ico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, var(--lime) 28%, transparent); color: var(--lime-ink); margin-bottom: 4px; }
 :root[data-theme='dark'] .opt-aud-ico { background: #1b2308; color: var(--lime); }
