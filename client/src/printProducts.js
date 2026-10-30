@@ -11,7 +11,7 @@ const groups = [
     items: [
       { name: 'Regular T-Shirt', icon: 'Shirt', img: '/tee-regular.png' },
       { name: 'Polo T-Shirt', icon: 'Shirt', img: '/polo-tee.png', garment: 'polo' },
-      { name: 'Dri-Fit T-Shirt', icon: 'Shirt' },
+      { name: 'Dri-Fit T-Shirt', icon: 'Shirt', img: '/dri-fit-tee.png' },
       { name: 'Dot-Net T-Shirt', icon: 'Shirt' },
       { name: 'Oversized T-Shirt', icon: 'Shirt', img: '/cat-tee.jpeg' },
     ],
@@ -109,7 +109,7 @@ const fabrics = {
   // The fabric is the choice, so there is no single material name.
   'Polo T-Shirt': { material: '', options: ['Pure cotton', 'Poly cotton', 'Polyester', 'Dot net'] },
   'Regular T-Shirt': { material: 'Pure cotton', options: [] }, // only one quality, so nothing to choose
-  'Dri-Fit T-Shirt': { material: 'Polyester, quick-dry', options: ['130 GSM', '150 GSM'] },
+  'Dri-Fit T-Shirt': { material: 'Polyester', options: [] }, // only one quality, so nothing to choose
   'Dot-Net T-Shirt': { material: 'Polyester mesh', options: ['130 GSM', '150 GSM'] },
   'Oversized T-Shirt': { material: 'Heavy cotton', options: ['220 GSM', '240 GSM'] },
   Caps: { material: 'Cotton twill', options: ['Standard', 'Premium'] },
@@ -140,15 +140,14 @@ const fabrics = {
 // `methods` are the print methods on offer. A method with `lightOnly` can only be used on light colours.
 // A product has either one `base` price or a `baseByMaterial` price for each fabric.
 const dtf = { label: 'DTF print', normalPerSqIn: 1, fullPerSqIn: 0.75 };
+const sublimation = { label: 'Sublimation', normalPerSqIn: 0.5, fullPerSqIn: 0.5, lightOnly: true };
 const prices = {
   'Regular T-Shirt': { base: 230, methods: { dtf } },
   'Polo T-Shirt': {
     baseByMaterial: { 'Pure cotton': 350, 'Poly cotton': 320, Polyester: 200, 'Dot net': 250 },
-    methods: {
-      dtf,
-      sublimation: { label: 'Sublimation', normalPerSqIn: 0.5, fullPerSqIn: 0.5, lightOnly: true },
-    },
+    methods: { dtf, sublimation },
   },
+  'Dri-Fit T-Shirt': { base: 145, methods: { dtf, sublimation } },
 };
 
 // Shirt price for the chosen fabric (or the single price when the product has no fabric choice).
