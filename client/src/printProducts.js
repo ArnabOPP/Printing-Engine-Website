@@ -107,7 +107,7 @@ const colourOptions = {
 // Material and the quality options available per product. PLACEHOLDERS: edit to match what you really offer.
 const fabrics = {
   'Polo T-Shirt': { material: 'Cotton piqué', options: ['180 GSM', '220 GSM'] },
-  'Regular T-Shirt': { material: '100% Cotton', options: ['160 GSM', '180 GSM', '220 GSM'] },
+  'Regular T-Shirt': { material: 'Pure cotton', options: [] }, // only one quality, so nothing to choose
   'Dri-Fit T-Shirt': { material: 'Polyester, quick-dry', options: ['130 GSM', '150 GSM'] },
   'Dot-Net T-Shirt': { material: 'Polyester mesh', options: ['130 GSM', '150 GSM'] },
   'Oversized T-Shirt': { material: 'Heavy cotton', options: ['220 GSM', '240 GSM'] },

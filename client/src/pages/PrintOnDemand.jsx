@@ -74,9 +74,11 @@ function ProductCard({ item, index, selected, onSelect }) {
           <span className="pod-fabric">
             <b>Material</b>
             <span className="pod-fabric-name">{item.fabric.material}</span>
-            <span className="pod-quals">
-              {item.fabric.options.map((o) => <i key={o}>{o}</i>)}
-            </span>
+            {item.fabric.options.length > 0 && (
+              <span className="pod-quals">
+                {item.fabric.options.map((o) => <i key={o}>{o}</i>)}
+              </span>
+            )}
           </span>
         )}
       </span>

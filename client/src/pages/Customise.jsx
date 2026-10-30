@@ -105,7 +105,16 @@ export default function Customise() {
 
   const goOn = () => {
     if (!ready) return;
-    const config = { product: label, category: product.category, material, colour, audience, sizes: sizeQty, quantity: total };
+    const config = {
+      product: label,
+      category: product.category,
+      // A product with a single quality has nothing to choose, so its fixed material is carried through.
+      material: materials.length === 0 ? (product.fabric?.material ?? null) : material,
+      colour,
+      audience,
+      sizes: sizeQty,
+      quantity: total,
+    };
     // Kept in sessionStorage too, so the design page still works after a refresh.
     try { sessionStorage.setItem(`po-config-${product.slug}`, JSON.stringify(config)); } catch { /* ignore */ }
     navigate(`/design/${product.slug}`, { state: config });
@@ -244,7 +253,12 @@ export default function Customise() {
           )}
           <h3>{label}</h3>
           <dl>
-            {materials.length > 0 && (<><dt>Material</dt><dd>{material ? `${product.fabric.material} · ${material}` : '—'}</dd></>)}
+            {product.fabric && (
+              <>
+                <dt>Material</dt>
+                <dd>{materials.length === 0 ? product.fabric.material : material ? `${product.fabric.material} · ${material}` : '—'}</dd>
+              </>
+            )}
             {colours.length > 0 && (<><dt>Colour</dt><dd className="opt-dd-colour">{colourObj ? (<><i style={{ background: colourObj.hex }} />{colourObj.name}</>) : '—'}</dd></>)}
             {isApparel && (<><dt>For</dt><dd>{aud ? aud.label : '—'}</dd></>)}
             {isApparel && (<><dt>Sizes</dt><dd>{sizeSummary || '—'}</dd></>)}
