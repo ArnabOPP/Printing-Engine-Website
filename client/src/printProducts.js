@@ -111,7 +111,7 @@ const fabrics = {
   'Regular T-Shirt': { material: 'Pure cotton', options: [] }, // only one quality, so nothing to choose
   'Dri-Fit T-Shirt': { material: 'Polyester', options: [] }, // only one quality, so nothing to choose
   'Dot-Net T-Shirt': { material: 'Polyester', options: [] }, // only one quality, so nothing to choose
-  'Oversized T-Shirt': { material: 'Heavy cotton', options: ['220 GSM', '240 GSM'] },
+  'Oversized T-Shirt': { material: 'Pure cotton', options: ['French terry', 'Sinker'] },
   Caps: { material: 'Cotton twill', options: ['Standard', 'Premium'] },
   'Cups / Mugs': { material: 'Ceramic', options: ['11 oz', '15 oz'] },
   Keychains: { material: 'Acrylic or metal', options: ['Acrylic', 'Metal'] },
@@ -149,6 +149,8 @@ const prices = {
   },
   'Dri-Fit T-Shirt': { base: 145, methods: { dtf, sublimation } },
   'Dot-Net T-Shirt': { base: 175, methods: { dtf, sublimation } },
+  // Cotton, so DTF only. Shirt prices follow the order of the sheet: French terry 275, Sinker 250.
+  'Oversized T-Shirt': { baseByMaterial: { 'French terry': 275, Sinker: 250 }, methods: { dtf } },
 };
 
 // Shirt price for the chosen fabric (or the single price when the product has no fabric choice).
