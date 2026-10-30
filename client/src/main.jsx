@@ -7,6 +7,7 @@ import './index.css';
 import './studio.css';
 import './studio-sleeves.css';
 import './studio-pricing.css';
+import './size-chart.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

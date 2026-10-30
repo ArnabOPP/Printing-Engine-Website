@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Check, ChevronRight, Minus, Plus, User, Users, Baby, Shirt } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronRight, Minus, Plus, Ruler, User, Users, Baby, Shirt } from 'lucide-react';
 import { printProducts } from '../printProducts.js';
 import { productIcons } from '../productIcons.js';
 import TeePhoto from '../components/TeePhoto.jsx';
+import SizeChart from '../components/SizeChart.jsx';
 import NotFound from './NotFound.jsx';
 
 const audiences = [
@@ -25,7 +26,7 @@ function gsmNote(option) {
   return 'Heavy, premium feel';
 }
 
-function StepHead({ n, title, hint, done }) {
+function StepHead({ n, title, hint, done, action }) {
   return (
     <div className="opt-head">
       <span className={`opt-n${done ? ' done' : ''}`}>{done ? <Check size={14} strokeWidth={3} /> : n}</span>
@@ -33,6 +34,7 @@ function StepHead({ n, title, hint, done }) {
         <h2>{title}</h2>
         {hint && <p>{hint}</p>}
       </div>
+      {action && <div className="opt-head-action">{action}</div>}
     </div>
   );
 }
@@ -48,6 +50,7 @@ export default function Customise() {
   const [sizeQty, setSizeQty] = useState({});
   const [qty, setQty] = useState(1);
   const [view, setView] = useState('front');
+  const [chartOpen, setChartOpen] = useState(false);
 
   const isApparel = product?.category === 'T-Shirts';
   const materials = product?.fabric?.options || [];
@@ -191,7 +194,17 @@ export default function Customise() {
 
           {isApparel && (
             <section className="opt-card" aria-labelledby="o-size">
-              <StepHead n={stepNo('sizes')} title="Sizes and quantity" hint={aud ? 'Add how many pieces you need in each size.' : 'Choose who it is for first.'} done={total > 0} />
+              <StepHead
+                n={stepNo('sizes')}
+                title="Sizes and quantity"
+                hint={aud ? 'Add how many pieces you need in each size.' : 'Choose who it is for first.'}
+                done={total > 0}
+                action={(
+                  <button type="button" className="opt-chart-link" onClick={() => setChartOpen(true)}>
+                    <Ruler size={15} /> Size chart
+                  </button>
+                )}
+              />
               {aud ? (
                 <ul className="opt-sizes">
                   {aud.sizes.map((s) => (
@@ -279,6 +292,16 @@ export default function Customise() {
           <Link to="/print-on-demand" className="opt-back"><ArrowLeft size={14} /> Change product</Link>
         </aside>
       </div>
+
+      {isApparel && (
+        <SizeChart
+          open={chartOpen}
+          onClose={() => setChartOpen(false)}
+          groups={availableAudiences.map((a) => ({ id: a.id, label: a.label }))}
+          initial={audience}
+          picked={Object.keys(sizeQty)}
+        />
+      )}
     </div>
   );
 }
