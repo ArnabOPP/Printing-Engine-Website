@@ -159,11 +159,10 @@ export const baseFor = (pricing, material) => {
 export const fromBase = (pricing) => (pricing.baseByMaterial ? Math.min(...Object.values(pricing.baseByMaterial)) : pricing.base);
 export const printFrom = (pricing) => Math.min(...Object.values(pricing.methods).map((m) => m.normalPerSqIn));
 
-// Who a product is made for (T-shirts only). A product not listed here is offered for everyone:
-// men, women, unisex and kids.
-const audienceOptions = {
-  'Regular T-Shirt': ['men', 'unisex', 'kids'],
-};
+// Who a T-shirt is made for. Every T-shirt type comes in Men, Unisex and Kids (there is no Women's range).
+// Add a product here only if it differs from this default.
+const DEFAULT_AUDIENCES = ['men', 'unisex', 'kids'];
+const audienceOptions = {};
 
 export const printGroups = groups.map((g, gi) => ({
   ...g,
@@ -175,7 +174,7 @@ export const printGroups = groups.map((g, gi) => ({
     colors: (colourOptions[it.name] || []).map((name) => ({ name, hex: palette[name] })),
     fabric: fabrics[it.name] || null,
     pricing: prices[it.name] || null,
-    audiences: audienceOptions[it.name] || null,
+    audiences: audienceOptions[it.name] || (g.id === 't-shirts' ? DEFAULT_AUDIENCES : null),
   })),
 }));
 
