@@ -6,6 +6,7 @@ import { CartProvider } from './context/CartContext.jsx';
 import './index.css';
 import './studio.css';
 import './studio-sleeves.css';
+import './studio-pricing.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

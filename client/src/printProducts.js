@@ -133,6 +133,12 @@ const fabrics = {
   'Stamp Pad': { material: 'Ink pad', options: ['Standard'] },
 };
 
+// Prices in ₹. `base` is the shirt with no print. Printing (DTF) is charged per square inch of artwork:
+// `normalPerSqIn` for normal print, `fullPerSqIn` for full body print.
+const prices = {
+  'Regular T-Shirt': { base: 230, normalPerSqIn: 1, fullPerSqIn: 0.75 },
+};
+
 export const printGroups = groups.map((g, gi) => ({
   ...g,
   number: String(gi + 1).padStart(2, '0'),
@@ -142,6 +148,7 @@ export const printGroups = groups.map((g, gi) => ({
     slug: slugify(it.spec ? `${it.name} ${it.spec}` : it.name),
     colors: (colourOptions[it.name] || []).map((name) => ({ name, hex: palette[name] })),
     fabric: fabrics[it.name] || null,
+    pricing: prices[it.name] || null,
   })),
 }));
 

@@ -250,6 +250,12 @@ export default function Customise() {
             {isApparel && (<><dt>Sizes</dt><dd>{sizeSummary || '—'}</dd></>)}
             <dt>Total</dt><dd><b>{total}</b> {total === 1 ? 'piece' : 'pieces'}</dd>
           </dl>
+          {product.pricing && (
+            <p className="opt-price">
+              <b>From ₹{product.pricing.base}</b> per piece, shirt only. Printing is extra: ₹{product.pricing.normalPerSqIn} per sq inch
+              (₹{product.pricing.fullPerSqIn} per sq inch for full body print).
+            </p>
+          )}
           <button className="btn btn-lime-solid opt-go" onClick={goOn} disabled={!ready}>
             Continue to design <ArrowRight size={16} />
           </button>

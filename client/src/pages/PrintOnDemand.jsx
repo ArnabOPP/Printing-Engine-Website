@@ -69,6 +69,7 @@ function ProductCard({ item, index, selected, onSelect }) {
             {item.colors.length > 6 && <em>+{item.colors.length - 6}</em>}
           </span>
         )}
+        {item.pricing && <span className="pod-price">From <b>₹{item.pricing.base}</b> <small>+ print ₹{item.pricing.normalPerSqIn}/sq in</small></span>}
         {item.fabric && (
           <span className="pod-fabric">
             <b>Material</b>
