@@ -111,7 +111,7 @@ const fabrics = {
   'Polo T-Shirt': { material: '', options: ['Pure cotton', 'Poly cotton', 'Polyester', 'Dot net'] },
   'Regular T-Shirt': { material: 'Pure cotton', options: [] }, // only one quality, so nothing to choose
   'Dri-Fit T-Shirt': { material: 'Polyester', options: [] }, // only one quality, so nothing to choose
-  'Dot-Net T-Shirt': { material: 'Polyester mesh', options: ['130 GSM', '150 GSM'] },
+  'Dot-Net T-Shirt': { material: 'Polyester', options: [] }, // only one quality, so nothing to choose
   'Oversized T-Shirt': { material: 'Heavy cotton', options: ['220 GSM', '240 GSM'] },
   Caps: { material: 'Cotton twill', options: ['Standard', 'Premium'] },
   'Cups / Mugs': { material: 'Ceramic', options: ['11 oz', '15 oz'] },
@@ -149,6 +149,7 @@ const prices = {
     methods: { dtf, sublimation },
   },
   'Dri-Fit T-Shirt': { base: 145, methods: { dtf, sublimation } },
+  'Dot-Net T-Shirt': { base: 175, methods: { dtf, sublimation } },
 };
 
 // Shirt price for the chosen fabric (or the single price when the product has no fabric choice).
