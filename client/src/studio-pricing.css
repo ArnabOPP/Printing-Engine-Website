@@ -22,3 +22,6 @@
 .opt-note { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
 .opt-choice:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
 .opt-choice:disabled:hover { border-color: var(--border); }
+
+/* Picker card photo that is a transparent cut-out: show it whole on the card's dark background */
+.pod-card-img img.contain { object-fit: contain; padding: 6%; }

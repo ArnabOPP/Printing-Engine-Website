@@ -49,7 +49,7 @@ function ProductCard({ item, index, selected, onSelect }) {
     >
       <span className="pod-card-img">
         {item.img ? (
-          <img src={item.img} alt="" loading="lazy" />
+          <img src={item.img} alt="" loading="lazy" className={item.imgFit === 'contain' ? 'contain' : undefined} />
         ) : (
           <span className="pod-icon"><Icon size={44} strokeWidth={1.5} /></span>
         )}
