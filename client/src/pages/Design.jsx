@@ -10,31 +10,23 @@ import { useHistory } from '../studio/useHistory.js';
 import { ShapeSvg, shapeList } from '../studio/shapes.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { quote, rupees, fmtRate } from '../studio/pricing.js';
+import { garmentFor } from '../studio/garments.js';
 
 /* ---------- configuration ---------- */
 
-// Normal print: where the print goes on the tee photo, as % of the photo box.
-const TEE_AREAS = {
-  front: { left: 28, top: 18, width: 44, height: 66 },
-  back: { left: 26, top: 12, width: 48, height: 74 },
-  // Sleeves are seen from the side; the print goes on the outer face of the sleeve.
-  left: { left: 47, top: 27, width: 12.5, height: 22 },
-  right: { left: 46, top: 27, width: 12.5, height: 22 },
-};
-
 export const sides = ['front', 'back', 'left', 'right'];
 const sideLabels = { front: 'Front', back: 'Back', left: 'Left sleeve', right: 'Right sleeve' };
-const garmentPhotos = { front: '/tee-front.png', back: '/tee-back.png', left: '/tee-left.png', right: '/tee-right.png' };
 const SLEEVE_ZOOM = 3.2; // the sleeve views are shown zoomed in, because a sleeve print is small
 // Full body print: the whole photo box. Artwork is then clipped to the shirt's own outline.
 const FULL_AREA = { left: 0, top: 0, width: 100, height: 100 };
 const FLAT_AREA = { left: 0, top: 0, width: 100, height: 100 };
 
-const areaFor = (isTee, mode, side) => {
+// `areas` are the normal-print areas of the garment being printed (see studio/garments.js).
+const areaFor = (isTee, mode, side, areas) => {
   if (!isTee) return FLAT_AREA;
   // Sleeves keep their own small print area, even in full body print.
-  if (side === 'left' || side === 'right') return TEE_AREAS[side];
-  return mode === 'full' ? FULL_AREA : TEE_AREAS[side];
+  if (side === 'left' || side === 'right') return areas[side];
+  return mode === 'full' ? FULL_AREA : areas[side];
 };
 
 // Width / height of the flat canvas for products that are not T-shirts (matched on the product label).
@@ -247,6 +239,7 @@ function Chrome({ layer, areaRef, onBegin, onChange }) {
 function Studio({ product, cfg, slug }) {
   const { add: addToCart } = useCart();
   const isTee = product.category === 'T-Shirts';
+  const garment = garmentFor(product); // which photos and print areas to use (tee or polo)
   const hex = product.colors.find((c) => c.name === cfg.colour)?.hex || '#ffffff';
   const onLight = isLight(hex);
   const ink = onLight ? '#161616' : '#ffffff';
@@ -274,7 +267,7 @@ function Studio({ product, cfg, slug }) {
   const layers = design[side];
   const selected = layers.find((l) => l.id === selectedId) || null;
   const aspect = isTee ? 1 : flatRatio(cfg.product);
-  const area = areaFor(isTee, mode, side);
+  const area = areaFor(isTee, mode, side, garment.areas);
   const areaAspect = (area.width / area.height) * aspect; // width / height of the print area
   const totalLayers = sides.reduce((n, s) => n + design[s].length, 0);
   // Price estimate (only for products that have prices set in printProducts.js).
@@ -287,12 +280,12 @@ function Studio({ product, cfg, slug }) {
         design,
         mode,
         quantity: cfg.quantity,
-        areaOf: (s) => areaFor(true, mode, s),
+        areaOf: (s) => areaFor(true, mode, s, garment.areas),
       })
       : null),
-    [isTee, product.pricing, design, mode, cfg.quantity, cfg.material, cfg.method],
+    [isTee, product.pricing, garment, design, mode, cfg.quantity, cfg.material, cfg.method],
   );
-  const garmentSrc = garmentPhotos[side];
+  const garmentSrc = garment.photos[side];
   const sleeveView = isSleeve;
   const zoom = sleeveView ? { z: SLEEVE_ZOOM, cx: area.left + area.width / 2, cy: area.top + area.height / 2 } : null;
 
@@ -317,7 +310,7 @@ function Studio({ product, cfg, slug }) {
     set((d) => ({
       ...d,
       mode: next,
-      ...Object.fromEntries(sides.map((s) => [s, convertLayers(d[s], areaFor(true, d.mode, s), areaFor(true, next, s))])),
+      ...Object.fromEntries(sides.map((s) => [s, convertLayers(d[s], areaFor(true, d.mode, s, garment.areas), areaFor(true, next, s, garment.areas))])),
     }));
     setAdded(false);
   };

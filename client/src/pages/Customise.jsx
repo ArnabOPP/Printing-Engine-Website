@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Minus, Plus, Ruler, User, Users, Baby, Shirt } from 'lucide-react';
 import { printProducts, baseFor } from '../printProducts.js';
 import { isLightHex, fmtRate } from '../studio/pricing.js';
+import { garmentFor } from '../studio/garments.js';
 import { productIcons } from '../productIcons.js';
 import TeePhoto from '../components/TeePhoto.jsx';
 import SizeChart from '../components/SizeChart.jsx';
@@ -294,7 +295,7 @@ export default function Customise() {
           <div className="opt-preview">
             {isApparel ? (
               <TeePhoto
-                src={view === 'front' ? '/tee-front.png' : '/tee-back.png'}
+                src={garmentFor(product).photos[view]}
                 colour={colourObj?.hex || '#ffffff'}
                 alt={`${label}, ${view} view${colour ? `, ${colour}` : ''}`}
               />
