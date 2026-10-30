@@ -10,7 +10,7 @@ const groups = [
     blurb: 'Pick a style and print your design on it.',
     items: [
       { name: 'Regular T-Shirt', icon: 'Shirt', img: '/tee-regular.png' },
-      { name: 'Polo T-Shirt', icon: 'Shirt' },
+      { name: 'Polo T-Shirt', icon: 'Shirt', img: '/polo-tee.png' },
       { name: 'Dri-Fit T-Shirt', icon: 'Shirt' },
       { name: 'Dot-Net T-Shirt', icon: 'Shirt' },
       { name: 'Oversized T-Shirt', icon: 'Shirt', img: '/cat-tee.jpeg' },
@@ -106,7 +106,8 @@ const colourOptions = {
 
 // Material and the quality options available per product. PLACEHOLDERS: edit to match what you really offer.
 const fabrics = {
-  'Polo T-Shirt': { material: 'Cotton piqué', options: ['180 GSM', '220 GSM'] },
+  // The fabric is the choice, so there is no single material name.
+  'Polo T-Shirt': { material: '', options: ['Pure cotton', 'Poly cotton', 'Polyester', 'Dot net'] },
   'Regular T-Shirt': { material: 'Pure cotton', options: [] }, // only one quality, so nothing to choose
   'Dri-Fit T-Shirt': { material: 'Polyester, quick-dry', options: ['130 GSM', '150 GSM'] },
   'Dot-Net T-Shirt': { material: 'Polyester mesh', options: ['130 GSM', '150 GSM'] },
@@ -135,9 +136,28 @@ const fabrics = {
 
 // Prices in ₹. `base` is the shirt with no print. Printing (DTF) is charged per square inch of artwork:
 // `normalPerSqIn` for normal print, `fullPerSqIn` for full body print.
+//
+// `methods` are the print methods on offer. A method with `lightOnly` can only be used on light colours.
+// A product has either one `base` price or a `baseByMaterial` price for each fabric.
+const dtf = { label: 'DTF print', normalPerSqIn: 1, fullPerSqIn: 0.75 };
 const prices = {
-  'Regular T-Shirt': { base: 230, normalPerSqIn: 1, fullPerSqIn: 0.75 },
+  'Regular T-Shirt': { base: 230, methods: { dtf } },
+  'Polo T-Shirt': {
+    baseByMaterial: { 'Pure cotton': 350, 'Poly cotton': 320, Polyester: 200, 'Dot net': 250 },
+    methods: {
+      dtf,
+      sublimation: { label: 'Sublimation', normalPerSqIn: 0.5, fullPerSqIn: 0.5, lightOnly: true },
+    },
+  },
 };
+
+// Shirt price for the chosen fabric (or the single price when the product has no fabric choice).
+export const baseFor = (pricing, material) => {
+  if (!pricing.baseByMaterial) return pricing.base;
+  return pricing.baseByMaterial[material] ?? Math.min(...Object.values(pricing.baseByMaterial));
+};
+export const fromBase = (pricing) => (pricing.baseByMaterial ? Math.min(...Object.values(pricing.baseByMaterial)) : pricing.base);
+export const printFrom = (pricing) => Math.min(...Object.values(pricing.methods).map((m) => m.normalPerSqIn));
 
 // Who a product is made for (T-shirts only). A product not listed here is offered for everyone:
 // men, women, unisex and kids.

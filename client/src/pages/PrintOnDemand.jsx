@@ -4,7 +4,8 @@ import {
   Search, Check, ArrowRight, ArrowUpRight, Shirt, Printer, Coffee, CreditCard, Sticker, FileText,
   ChevronRight, MousePointerClick, Upload, PackageCheck,
 } from 'lucide-react';
-import { printGroups } from '../printProducts.js';
+import { printGroups, fromBase, printFrom } from '../printProducts.js';
+import { fmtRate } from '../studio/pricing.js';
 import { productIcons as icons } from '../productIcons.js';
 
 const groupVisual = {
@@ -69,11 +70,11 @@ function ProductCard({ item, index, selected, onSelect }) {
             {item.colors.length > 6 && <em>+{item.colors.length - 6}</em>}
           </span>
         )}
-        {item.pricing && <span className="pod-price">From <b>₹{item.pricing.base}</b> <small>+ print ₹{item.pricing.normalPerSqIn}/sq in</small></span>}
+        {item.pricing && <span className="pod-price">From <b>₹{fromBase(item.pricing)}</b> <small>+ print from ₹{fmtRate(printFrom(item.pricing))}/sq in</small></span>}
         {item.fabric && (
           <span className="pod-fabric">
             <b>Material</b>
-            <span className="pod-fabric-name">{item.fabric.material}</span>
+            {item.fabric.material && <span className="pod-fabric-name">{item.fabric.material}</span>}
             {item.fabric.options.length > 0 && (
               <span className="pod-quals">
                 {item.fabric.options.map((o) => <i key={o}>{o}</i>)}

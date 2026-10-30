@@ -7,6 +7,8 @@
 // a typical adult medium). Every size is priced with this same scale. Change it to match your real print sizes.
 export const PHOTO_WIDTH_IN = 24;
 
+import { baseFor } from '../printProducts.js';
+
 const SIDES = ['front', 'back', 'left', 'right'];
 
 let ctx = null;
@@ -56,21 +58,34 @@ export function sideSqIn(layers, area) {
   return widthIn * heightIn;
 }
 
+// Sublimation (and anything else marked `lightOnly`) only works on light colours.
+export const isLightHex = (hex) => {
+  const n = parseInt(hex.slice(1), 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  return 0.299 * r + 0.587 * g + 0.114 * b >= 165;
+};
+
 // areaOf(side) gives the print area (in % of the photo) for that side in the current print mode.
-export function quote({ pricing, design, mode, quantity, areaOf }) {
+// `material` picks the shirt price for fabrics that are priced differently; `method` is the print method id.
+export function quote({ pricing, material, method, design, mode, quantity, areaOf }) {
+  const m = pricing.methods[method] || Object.values(pricing.methods)[0];
+  const base = baseFor(pricing, material);
   const lines = [];
   let print = 0;
   SIDES.forEach((s) => {
     if (!design[s].length) return;
     const sqIn = sideSqIn(design[s], areaOf(s));
     const fullBody = mode === 'full' && (s === 'front' || s === 'back');
-    const rate = fullBody ? pricing.fullPerSqIn : pricing.normalPerSqIn;
+    const rate = fullBody ? m.fullPerSqIn : m.normalPerSqIn;
     const amount = Math.round(sqIn * rate);
     print += amount;
     lines.push({ side: s, sqIn: Math.round(sqIn * 10) / 10, rate, amount });
   });
-  const perPiece = pricing.base + print;
-  return { base: pricing.base, lines, print, perPiece, quantity, total: perPiece * quantity };
+  const perPiece = base + print;
+  return { base, method: m, lines, print, perPiece, quantity, total: perPiece * quantity };
 }
 
 export const rupees = (n) => `₹${Math.round(n).toLocaleString('en-IN')}`;
+
+// A per-square-inch rate: whole rupees as they are, part-rupee rates with two decimals (0.50, 0.75).
+export const fmtRate = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(2));

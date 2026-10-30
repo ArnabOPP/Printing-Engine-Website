@@ -9,7 +9,7 @@ import TeePhoto from '../components/TeePhoto.jsx';
 import { useHistory } from '../studio/useHistory.js';
 import { ShapeSvg, shapeList } from '../studio/shapes.jsx';
 import { useCart } from '../context/CartContext.jsx';
-import { quote, rupees } from '../studio/pricing.js';
+import { quote, rupees, fmtRate } from '../studio/pricing.js';
 
 /* ---------- configuration ---------- */
 
@@ -280,9 +280,17 @@ function Studio({ product, cfg, slug }) {
   // Price estimate (only for products that have prices set in printProducts.js).
   const priced = useMemo(
     () => (isTee && product.pricing
-      ? quote({ pricing: product.pricing, design, mode, quantity: cfg.quantity, areaOf: (s) => areaFor(true, mode, s) })
+      ? quote({
+        pricing: product.pricing,
+        material: cfg.material,
+        method: cfg.method,
+        design,
+        mode,
+        quantity: cfg.quantity,
+        areaOf: (s) => areaFor(true, mode, s),
+      })
       : null),
-    [isTee, product.pricing, design, mode, cfg.quantity],
+    [isTee, product.pricing, design, mode, cfg.quantity, cfg.material, cfg.method],
   );
   const garmentSrc = garmentPhotos[side];
   const sleeveView = isSleeve;
@@ -684,6 +692,7 @@ function Studio({ product, cfg, slug }) {
               {cfg.audience && (<><dt>For</dt><dd>{cfg.audience}</dd></>)}
               {sizeSummary && (<><dt>Sizes</dt><dd>{sizeSummary}</dd></>)}
               <dt>Quantity</dt><dd>{cfg.quantity}</dd>
+              {cfg.methodLabel && (<><dt>Method</dt><dd>{cfg.methodLabel}</dd></>)}
               {isTee && (<><dt>Print</dt><dd>{full ? 'Full body print' : 'Normal print'}</dd></>)}
               <dt>Design</dt><dd>{isTee ? sides.map((s) => `${sideLabels[s]} ${design[s].length}`).join(' · ') : `${design.front.length} item${design.front.length === 1 ? '' : 's'}`}</dd>
             </dl>
@@ -693,14 +702,14 @@ function Studio({ product, cfg, slug }) {
                 <div className="st-price-row"><span>Shirt, no print</span><b>{rupees(priced.base)}</b></div>
                 {priced.lines.map((l) => (
                   <div className="st-price-row" key={l.side}>
-                    <span>{sideLabels[l.side]} print <small>{l.sqIn} sq in × ₹{l.rate}</small></span>
+                    <span>{sideLabels[l.side]} print <small>{l.sqIn} sq in × ₹{fmtRate(l.rate)}</small></span>
                     <b>{rupees(l.amount)}</b>
                   </div>
                 ))}
                 {!priced.lines.length && <p className="st-price-note">Add a design to see the print charge.</p>}
                 <div className="st-price-row each"><span>Each piece</span><b>{rupees(priced.perPiece)}</b></div>
                 <div className="st-price-row total"><span>Estimated total · {priced.quantity} {priced.quantity === 1 ? 'piece' : 'pieces'}</span><b>{rupees(priced.total)}</b></div>
-                <p className="st-price-note">Print is ₹{product.pricing.normalPerSqIn} per sq inch (₹{product.pricing.fullPerSqIn} per sq inch for full body print), by the size of your artwork. This is an estimate. The final price is confirmed at order.</p>
+                <p className="st-price-note">{priced.method.label} is ₹{fmtRate(priced.method.normalPerSqIn)} per sq inch (₹{fmtRate(priced.method.fullPerSqIn)} per sq inch for full body print), by the size of your artwork. This is an estimate. The final price is confirmed at order.</p>
               </div>
             )}
 

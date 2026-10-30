@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Minus, Plus, Ruler, User, Users, Baby, Shirt } from 'lucide-react';
-import { printProducts } from '../printProducts.js';
+import { printProducts, baseFor } from '../printProducts.js';
+import { isLightHex, fmtRate } from '../studio/pricing.js';
 import { productIcons } from '../productIcons.js';
 import TeePhoto from '../components/TeePhoto.jsx';
 import SizeChart from '../components/SizeChart.jsx';
@@ -51,8 +52,13 @@ export default function Customise() {
   const [qty, setQty] = useState(1);
   const [view, setView] = useState('front');
   const [chartOpen, setChartOpen] = useState(false);
+  const [method, setMethod] = useState(null);
 
   const isApparel = product?.category === 'T-Shirts';
+  // Print methods (for example DTF or sublimation). Only asked about when there is more than one.
+  const methodIds = product?.pricing ? Object.keys(product.pricing.methods) : [];
+  const hasMethodChoice = isApparel && methodIds.length > 1;
+  const activeMethod = methodIds.includes(method) ? method : methodIds[0];
   const materials = product?.fabric?.options || [];
   const colours = product?.colors || [];
   const aud = audiences.find((a) => a.id === audience);
@@ -64,6 +70,7 @@ export default function Customise() {
     window.scrollTo({ top: 0, behavior: 'instant' });
     setMaterial(product?.fabric?.options?.[0] ?? null);
     setColour(product?.colors?.[0]?.name ?? null);
+    setMethod(product?.pricing ? Object.keys(product.pricing.methods)[0] : null);
     setAudience(null);
     setSizeQty({});
     setQty(1);
@@ -77,10 +84,11 @@ export default function Customise() {
     const s = [];
     if (materials.length) s.push('material');
     if (colours.length) s.push('colour');
+    if (hasMethodChoice) s.push('method');
     if (isApparel) s.push('audience', 'sizes');
     else s.push('quantity');
     return s;
-  }, [materials.length, colours.length, isApparel]);
+  }, [materials.length, colours.length, hasMethodChoice, isApparel]);
 
   if (!product) return <NotFound />;
 
@@ -99,6 +107,13 @@ export default function Customise() {
       return copy;
     });
 
+  // A method that only works on light colours (sublimation) is dropped when a dark colour is picked.
+  const pickColour = (c) => {
+    setColour(c.name);
+    if (product.pricing?.methods[activeMethod]?.lightOnly && !isLightHex(c.hex)) setMethod(methodIds[0]);
+  };
+  const lightColour = colourObj ? isLightHex(colourObj.hex) : true;
+
   const pickAudience = (id) => {
     if (id !== audience) setSizeQty({});
     setAudience(id);
@@ -116,6 +131,8 @@ export default function Customise() {
       // A product with a single quality has nothing to choose, so its fixed material is carried through.
       material: materials.length === 0 ? (product.fabric?.material ?? null) : material,
       colour,
+      method: product.pricing ? activeMethod : null,
+      methodLabel: hasMethodChoice ? product.pricing.methods[activeMethod].label : null,
       audience,
       sizes: sizeQty,
       quantity: total,
@@ -146,12 +163,13 @@ export default function Customise() {
 
           {materials.length > 0 && (
             <section className="opt-card" aria-labelledby="o-material">
-              <StepHead n={stepNo('material')} title="Material quality" hint={product.fabric.material} done={!!material} />
+              <StepHead n={stepNo('material')} title="Material quality" hint={product.fabric.material || 'Pick the fabric.'} done={!!material} />
               <div className="opt-grid" role="radiogroup" aria-label="Material quality">
                 {materials.map((m) => (
                   <button key={m} role="radio" aria-checked={m === material} className={`opt-choice${m === material ? ' on' : ''}`} onClick={() => setMaterial(m)}>
                     <strong>{m}</strong>
                     {gsmNote(m) && <small>{gsmNote(m)}</small>}
+                    {product.pricing?.baseByMaterial && <em className="opt-mprice">₹{product.pricing.baseByMaterial[m]} shirt only</em>}
                     {m === material && <span className="opt-tick"><Check size={13} strokeWidth={3} /></span>}
                   </button>
                 ))}
@@ -164,11 +182,40 @@ export default function Customise() {
               <StepHead n={stepNo('colour')} title="Colour" hint={colour ? `Selected: ${colour}` : 'Choose a colour'} done={!!colour} />
               <div className="opt-swatches" role="radiogroup" aria-label="Colour">
                 {colours.map((c) => (
-                  <button key={c.name} role="radio" aria-checked={c.name === colour} className={c.name === colour ? 'on' : ''} onClick={() => setColour(c.name)}>
+                  <button key={c.name} role="radio" aria-checked={c.name === colour} className={c.name === colour ? 'on' : ''} onClick={() => pickColour(c)}>
                     <i style={{ background: c.hex }} />
                     <span>{c.name}</span>
                   </button>
                 ))}
+              </div>
+            </section>
+          )}
+
+          {hasMethodChoice && (
+            <section className="opt-card" aria-labelledby="o-method">
+              <StepHead n={stepNo('method')} title="Print method" hint="How your design is printed." done />
+              <div className="opt-grid" role="radiogroup" aria-label="Print method">
+                {methodIds.map((id) => {
+                  const m = product.pricing.methods[id];
+                  const blocked = m.lightOnly && !lightColour;
+                  return (
+                    <button
+                      key={id}
+                      role="radio"
+                      aria-checked={id === activeMethod}
+                      disabled={blocked}
+                      className={`opt-choice${id === activeMethod ? ' on' : ''}`}
+                      onClick={() => setMethod(id)}
+                    >
+                      <strong>{m.label}</strong>
+                      <small>₹{fmtRate(m.normalPerSqIn)} per sq inch · ₹{fmtRate(m.fullPerSqIn)} full body</small>
+                      {m.lightOnly && (
+                        <small className="opt-note">{blocked ? 'Needs a light colour. Pick white or another light colour above.' : 'Light colours only'}</small>
+                      )}
+                      {id === activeMethod && <span className="opt-tick"><Check size={13} strokeWidth={3} /></span>}
+                    </button>
+                  );
+                })}
               </div>
             </section>
           )}
@@ -271,18 +318,20 @@ export default function Customise() {
             {product.fabric && (
               <>
                 <dt>Material</dt>
-                <dd>{materials.length === 0 ? product.fabric.material : material ? `${product.fabric.material} · ${material}` : '—'}</dd>
+                <dd>{materials.length === 0 ? product.fabric.material : material ? (product.fabric.material ? `${product.fabric.material} · ${material}` : material) : '—'}</dd>
               </>
             )}
             {colours.length > 0 && (<><dt>Colour</dt><dd className="opt-dd-colour">{colourObj ? (<><i style={{ background: colourObj.hex }} />{colourObj.name}</>) : '—'}</dd></>)}
+            {hasMethodChoice && (<><dt>Method</dt><dd>{product.pricing.methods[activeMethod].label}</dd></>)}
             {isApparel && (<><dt>For</dt><dd>{aud ? aud.label : '—'}</dd></>)}
             {isApparel && (<><dt>Sizes</dt><dd>{sizeSummary || '—'}</dd></>)}
             <dt>Total</dt><dd><b>{total}</b> {total === 1 ? 'piece' : 'pieces'}</dd>
           </dl>
           {product.pricing && (
             <p className="opt-price">
-              <b>From ₹{product.pricing.base}</b> per piece, shirt only. Printing is extra: ₹{product.pricing.normalPerSqIn} per sq inch
-              (₹{product.pricing.fullPerSqIn} per sq inch for full body print).
+              <b>₹{baseFor(product.pricing, material)}</b> per piece, shirt only. Printing is extra:
+              {' '}{product.pricing.methods[activeMethod].label} is ₹{fmtRate(product.pricing.methods[activeMethod].normalPerSqIn)} per sq inch
+              (₹{fmtRate(product.pricing.methods[activeMethod].fullPerSqIn)} per sq inch for full body print).
             </p>
           )}
           <button className="btn btn-lime-solid opt-go" onClick={goOn} disabled={!ready}>
