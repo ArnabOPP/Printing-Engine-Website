@@ -9,8 +9,8 @@ const groups = [
     name: 'T-Shirts',
     blurb: 'Pick a style and print your design on it.',
     items: [
-      { name: 'Polo T-Shirt', icon: 'Shirt' },
       { name: 'Regular T-Shirt', icon: 'Shirt', img: '/cat-tee.jpeg' },
+      { name: 'Polo T-Shirt', icon: 'Shirt' },
       { name: 'Dri-Fit T-Shirt', icon: 'Shirt' },
       { name: 'Dot-Net T-Shirt', icon: 'Shirt' },
       { name: 'Oversized T-Shirt', icon: 'Shirt', img: '/cat-tee.jpeg' },
