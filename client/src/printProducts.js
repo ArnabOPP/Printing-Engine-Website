@@ -9,7 +9,6 @@ const groups = [
     name: 'T-Shirts',
     blurb: 'Pick a style and print your design on it.',
     items: [
-      { name: 'Cotton T-Shirt', icon: 'Shirt', img: '/cat-tee.jpeg' },
       { name: 'Polo T-Shirt', icon: 'Shirt' },
       { name: 'Regular T-Shirt', icon: 'Shirt', img: '/cat-tee.jpeg' },
       { name: 'Dri-Fit T-Shirt', icon: 'Shirt' },
@@ -91,9 +90,8 @@ const palette = {
 };
 
 const colourOptions = {
-  'Cotton T-Shirt': ['white', 'black', 'navy', 'red', 'royal blue', 'grey', 'green', 'yellow'],
   'Polo T-Shirt': ['white', 'black', 'navy', 'red', 'royal blue', 'grey'],
-  'Regular T-Shirt': ['white', 'black', 'navy', 'red', 'royal blue', 'grey', 'maroon'],
+  'Regular T-Shirt': ['white', 'black', 'navy', 'red', 'royal blue', 'grey', 'green', 'yellow'],
   'Dri-Fit T-Shirt': ['white', 'black', 'navy', 'royal blue', 'red'],
   'Dot-Net T-Shirt': ['white', 'black', 'navy', 'royal blue', 'red', 'grey'],
   'Oversized T-Shirt': ['white', 'black', 'natural', 'grey', 'green', 'pink'],
@@ -108,9 +106,8 @@ const colourOptions = {
 
 // Material and the quality options available per product. PLACEHOLDERS: edit to match what you really offer.
 const fabrics = {
-  'Cotton T-Shirt': { material: '100% Cotton', options: ['160 GSM', '180 GSM', '220 GSM'] },
   'Polo T-Shirt': { material: 'Cotton piqué', options: ['180 GSM', '220 GSM'] },
-  'Regular T-Shirt': { material: '100% Cotton', options: ['160 GSM', '180 GSM'] },
+  'Regular T-Shirt': { material: '100% Cotton', options: ['160 GSM', '180 GSM', '220 GSM'] },
   'Dri-Fit T-Shirt': { material: 'Polyester, quick-dry', options: ['130 GSM', '150 GSM'] },
   'Dot-Net T-Shirt': { material: 'Polyester mesh', options: ['130 GSM', '150 GSM'] },
   'Oversized T-Shirt': { material: 'Heavy cotton', options: ['220 GSM', '240 GSM'] },
