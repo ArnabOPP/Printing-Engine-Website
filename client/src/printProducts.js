@@ -12,8 +12,7 @@ const groups = [
       { name: 'Regular T-Shirt', icon: 'Shirt', img: '/tee-regular.png' },
       { name: 'Polo T-Shirt', icon: 'Shirt', img: '/polo-tee.png', garment: 'polo' },
       { name: 'Dri-Fit T-Shirt', icon: 'Shirt', img: '/dri-fit-tee.png', garment: 'tee' },
-      // The card photo is the transparent tee cut-out, so it is shown whole (imgFit: 'contain') and not cropped.
-      { name: 'Dot-Net T-Shirt', icon: 'Shirt', img: '/tee-front.png', imgFit: 'contain', garment: 'tee' },
+      { name: 'Dot-Net T-Shirt', icon: 'Shirt', img: '/dot-net-tee.png', garment: 'tee' },
       { name: 'Oversized T-Shirt', icon: 'Shirt', img: '/cat-tee.jpeg' },
     ],
   },
