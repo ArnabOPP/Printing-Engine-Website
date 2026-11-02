@@ -139,7 +139,7 @@ const fabrics = {
 //
 // `methods` are the print methods on offer. A method with `lightOnly` can only be used on light colours.
 // A product has either one `base` price or a `baseByMaterial` price for each fabric.
-const dtf = { label: 'DTF print', normalPerSqIn: 1, fullPerSqIn: 0.75 };
+const dtf = { label: 'DTF print', normalPerSqIn: 1, fullPerSqIn: 1.5 };
 const sublimation = { label: 'Sublimation', normalPerSqIn: 0.5, fullPerSqIn: 0.5, lightOnly: true };
 const prices = {
   'Regular T-Shirt': { base: 230, methods: { dtf } },
