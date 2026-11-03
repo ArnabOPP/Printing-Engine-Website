@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Minus, Plus, Ruler, User, Users, Baby, Shirt } from 'lucide-react';
-import { printProducts, baseFor } from '../printProducts.js';
+import { printProducts, baseFor, sheetCost } from '../printProducts.js';
 import { isLightHex, fmtRate } from '../studio/pricing.js';
 import { garmentFor } from '../studio/garments.js';
 import { productIcons } from '../productIcons.js';
@@ -188,6 +188,7 @@ export default function Customise() {
                   <button key={sh.id} role="radio" aria-checked={sh.id === sheetObj.id} className={`opt-choice${sh.id === sheetObj.id ? ' on' : ''}`} onClick={() => setSheet(sh.id)}>
                     <strong>{sh.label} sheet</strong>
                     <small>{sh.w} × {sh.h} mm · {(sh.w / 25.4).toFixed(2)} × {(sh.h / 25.4).toFixed(2)} in</small>
+                    {product.sheetPrice?.per === 'sheet' && <em className="opt-mprice">₹{sheetCost(product.sheetPrice, sh)} per sheet</em>}
                     {sh.id === sheetObj.id && <span className="opt-tick"><Check size={13} strokeWidth={3} /></span>}
                   </button>
                 ))}
@@ -209,7 +210,7 @@ export default function Customise() {
                     <input type="number" inputMode="decimal" min={CUSTOM_MIN} max={CUSTOM_MAX} step="0.5" value={customIn.h} onChange={(e) => setCustomIn((c) => ({ ...c, h: e.target.value }))} />
                   </label>
                   <small className={customOk ? '' : 'bad'}>
-                    {customOk ? `${(cw * ch).toFixed(1)} sq in sheet` : `Enter sizes from ${CUSTOM_MIN} to ${CUSTOM_MAX} inches.`}
+                    {customOk ? `${(cw * ch).toFixed(1)} sq in sheet${product.sheetPrice?.per === 'sheet' ? ` · ₹${sheetCost(product.sheetPrice, sheetObj)} per sheet` : ''}` : `Enter sizes from ${CUSTOM_MIN} to ${CUSTOM_MAX} inches.`}
                   </small>
                 </div>
               )}
@@ -388,6 +389,13 @@ export default function Customise() {
               <b>₹{baseFor(product.pricing, material)}</b> per piece, shirt only. Printing is extra:
               {' '}{product.pricing.methods[activeMethod].label} is ₹{fmtRate(product.pricing.methods[activeMethod].normalPerSqIn)} per sq inch
               (₹{fmtRate(product.pricing.methods[activeMethod].fullPerSqIn)} per sq inch for full body print).
+            </p>
+          )}
+          {product.sheetPrice && (
+            <p className="opt-price">
+              {product.sheetPrice.per === 'sheet'
+                ? <>Priced per sheet: <b>₹{sheetCost(product.sheetPrice, sheetObj)}</b> for the {sheetObj.label} sheet. {sheetObj.id === 'a4' ? '' : 'Sizes other than A4 are charged by area. '}</>
+                : <>Priced by the size of your artwork: <b>₹{fmtRate(product.sheetPrice.rate)}</b> per sq inch.</>}
             </p>
           )}
           <button className="btn btn-lime-solid opt-go" onClick={goOn} disabled={!ready}>

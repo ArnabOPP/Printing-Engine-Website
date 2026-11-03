@@ -9,7 +9,7 @@ import TeePhoto from '../components/TeePhoto.jsx';
 import { useHistory } from '../studio/useHistory.js';
 import { ShapeSvg, shapeList } from '../studio/shapes.jsx';
 import { useCart } from '../context/CartContext.jsx';
-import { quote, rupees, fmtRate, layerSize, PHOTO_WIDTH_IN } from '../studio/pricing.js';
+import { quote, sheetQuote, rupees, fmtRate, layerSize, PHOTO_WIDTH_IN } from '../studio/pricing.js';
 import { garmentFor } from '../studio/garments.js';
 
 /* ---------- configuration ---------- */
@@ -409,6 +409,18 @@ function Studio({ product, cfg, slug }) {
       : null),
     [isTee, product.pricing, garment, design, mode, cfg.quantity, cfg.material, cfg.method],
   );
+  // Price estimate for a printing sheet (DTF, Sublimation, UV DTF), by artwork area or by sheet.
+  const sheetPriced = sheet && product.sheetPrice
+    ? sheetQuote({
+      sheetPrice: product.sheetPrice,
+      sheet,
+      items: design.front.map((l) => {
+        const { w, h } = layerSize(l);
+        return { sqIn: w * h * inPerUnit * inPerUnit, copies: 1 + (shownCopies(l)?.length || 0) };
+      }),
+      quantity: cfg.quantity,
+    })
+    : null;
   const garmentSrc = garment.photos[side];
   const sleeveView = isSleeve;
   const zoom = sleeveView ? { z: SLEEVE_ZOOM, cx: area.left + area.width / 2, cy: area.top + area.height / 2 } : null;
@@ -568,6 +580,7 @@ function Studio({ product, cfg, slug }) {
     setAskEmpty(false);
   };
 
+  const price = priced || sheetPriced; // whichever estimate applies to this product
   const label = cfg.product;
   const sizeSummary = cfg.sizes ? Object.entries(cfg.sizes).map(([s, n]) => `${s} × ${n}`).join(', ') : '';
   const layerName = (l) => (l.type === 'text' ? `“${l.text.value.slice(0, 18) || 'Text'}”` : l.type === 'image' ? l.image.name : (shapeList.find((s) => s.kind === l.shape.kind)?.label || 'Shape'));
@@ -941,6 +954,27 @@ function Studio({ product, cfg, slug }) {
               </div>
             )}
 
+            {sheetPriced && (
+              <div className="st-price" aria-label="Price estimate">
+                {sheetPriced.per === 'sqin' ? (
+                  <div className="st-price-row">
+                    <span>Print <small>{sheetPriced.artSqIn} sq in × ₹{fmtRate(sheetPriced.rate)}</small></span>
+                    <b>{rupees(sheetPriced.perPiece)}</b>
+                  </div>
+                ) : (
+                  <div className="st-price-row"><span>{sheet.label} sheet <small>{sheet.w} × {sheet.h} mm</small></span><b>{rupees(sheetPriced.perPiece)}</b></div>
+                )}
+                {sheetPriced.per === 'sqin' && !design.front.length && <p className="st-price-note">Add a design to see the print charge.</p>}
+                <div className="st-price-row each"><span>Each sheet</span><b>{rupees(sheetPriced.perPiece)}</b></div>
+                <div className="st-price-row total"><span>Estimated total · {sheetPriced.quantity} {sheetPriced.quantity === 1 ? 'sheet' : 'sheets'}</span><b>{rupees(sheetPriced.total)}</b></div>
+                <p className="st-price-note">
+                  {sheetPriced.per === 'sqin'
+                    ? `Charged at ₹${fmtRate(sheetPriced.rate)} per sq inch of artwork, counting every repeated copy. This is an estimate. The final price is confirmed at order.`
+                    : 'Charged per sheet, whatever is printed on it. Sizes other than A4 are charged by area. This is an estimate. The final price is confirmed at order.'}
+                </p>
+              </div>
+            )}
+
             {added ? (
               <div className="st-done" role="status">
                 <p><Check size={16} strokeWidth={3} /> Added {cfg.quantity} to your cart</p>
@@ -954,7 +988,7 @@ function Studio({ product, cfg, slug }) {
               <>
                 {askEmpty && <p className="st-alert" role="alert"><AlertTriangle size={15} /> You haven’t added a design yet. Press again to add the plain product.</p>}
                 <button type="button" className="btn btn-lime-solid opt-go" onClick={addDesignToCart}>
-                  <ShoppingBag size={17} /> {askEmpty ? 'Add without a design' : priced ? `Add to cart · ${rupees(priced.total)}` : 'Add to cart'}
+                  <ShoppingBag size={17} /> {askEmpty ? 'Add without a design' : price ? `Add to cart · ${rupees(price.total)}` : 'Add to cart'}
                 </button>
               </>
             )}

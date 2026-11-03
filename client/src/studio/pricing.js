@@ -7,7 +7,7 @@
 // a typical adult medium). Every size is priced with this same scale. Change it to match your real print sizes.
 export const PHOTO_WIDTH_IN = 24;
 
-import { baseFor } from '../printProducts.js';
+import { baseFor, sheetCost } from '../printProducts.js';
 
 const SIDES = ['front', 'back', 'left', 'right'];
 
@@ -87,6 +87,14 @@ export function quote({ pricing, material, method, design, mode, quantity, areaO
   });
   const perPiece = base + print;
   return { base, method: m, lines, print, perPiece, quantity, total: perPiece * quantity };
+}
+
+// Price of a design on a printing sheet. `items` are the artwork pieces: { sqIn, copies } (size of one piece,
+// and how many times it appears on the sheet). `sqin` services charge by artwork area; `sheet` services by sheet.
+export function sheetQuote({ sheetPrice, sheet, items, quantity }) {
+  const artSqIn = items.reduce((n, i) => n + i.sqIn * i.copies, 0);
+  const perPiece = sheetPrice.per === 'sheet' ? sheetCost(sheetPrice, sheet) : Math.round(artSqIn * sheetPrice.rate);
+  return { per: sheetPrice.per, rate: sheetPrice.rate, artSqIn: Math.round(artSqIn * 10) / 10, perPiece, quantity, total: perPiece * quantity };
 }
 
 export const rupees = (n) => `₹${Math.round(n).toLocaleString('en-IN')}`;

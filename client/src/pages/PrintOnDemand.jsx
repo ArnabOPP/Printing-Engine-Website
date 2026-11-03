@@ -71,6 +71,13 @@ function ProductCard({ item, index, selected, onSelect }) {
           </span>
         )}
         {item.pricing && <span className="pod-price">From <b>₹{fromBase(item.pricing)}</b> <small>+ print from ₹{fmtRate(printFrom(item.pricing))}/sq in</small></span>}
+        {item.sheetPrice && (
+          <span className="pod-price">
+            {item.sheetPrice.per === 'sheet'
+              ? <><b>₹{item.sheetPrice.a4}</b> <small>per A4 sheet</small></>
+              : <><b>₹{fmtRate(item.sheetPrice.rate)}</b> <small>per sq inch</small></>}
+          </span>
+        )}
         {item.fabric && (
           <span className="pod-fabric">
             <b>Material</b>

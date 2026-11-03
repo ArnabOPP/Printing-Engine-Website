@@ -170,6 +170,17 @@ const sheetOptions = { 'DTF Printing': A_SHEETS, 'Sublimation Printing': A_SHEET
 // Sheet products that also let you type your own size.
 const customSheetProducts = ['Sublimation Printing'];
 
+// Prices for the sheet services, in ₹. `sqin`: charged per square inch of artwork. `sheet`: a flat price per A4 sheet,
+// and other sizes are charged in proportion to their area (an A3 sheet is exactly two A4 sheets).
+const sheetPrices = {
+  'DTF Printing': { per: 'sqin', rate: 1.5 },
+  'UV DTF Printing': { per: 'sqin', rate: 4 },
+  'Sublimation Printing': { per: 'sheet', a4: 35 },
+};
+const A4_MM2 = 210 * 297;
+// Price of one sheet for a `per: 'sheet'` service (sheet size in mm).
+export const sheetCost = (sp, sheet) => Math.round(((sheet.w * sheet.h) / A4_MM2) * sp.a4);
+
 // Who a T-shirt is made for. Every T-shirt type comes in Men, Unisex and Kids (there is no Women's range).
 // Add a product here only if it differs from this default.
 const DEFAULT_AUDIENCES = ['men', 'unisex', 'kids'];
@@ -186,6 +197,7 @@ export const printGroups = groups.map((g, gi) => ({
     fabric: fabrics[it.name] || null,
     pricing: prices[it.name] || null,
     sheets: sheetOptions[it.name] || null,
+    sheetPrice: sheetPrices[it.name] || null,
     customSheet: customSheetProducts.includes(it.name),
     audiences: audienceOptions[it.name] || (g.id === 't-shirts' ? DEFAULT_AUDIENCES : null),
   })),
