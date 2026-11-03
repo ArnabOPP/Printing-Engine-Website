@@ -7,6 +7,7 @@ import {
 import { printGroups, fromBase, printFrom } from '../printProducts.js';
 import { fmtRate } from '../studio/pricing.js';
 import { productIcons as icons } from '../productIcons.js';
+import CustomSections from '../components/CustomSections.jsx';
 
 const groupVisual = {
   't-shirts': { img: '/cat-tee.jpeg', icon: Shirt },
@@ -130,6 +131,7 @@ export default function PrintOnDemand() {
 
   return (
     <div className="pod">
+      <CustomSections page="print-on-demand" slot="top" />
       <section className="pod-hero">
         <div className="wrap pod-hero-in">
           <div className="pod-hero-copy">
@@ -234,6 +236,7 @@ export default function PrintOnDemand() {
           </button>
         </div>
       </div>
+      <CustomSections page="print-on-demand" slot="bottom" />
     </div>
   );
 }

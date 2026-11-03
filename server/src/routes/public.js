@@ -4,14 +4,34 @@ import crypto from 'node:crypto';
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { UPLOAD_DIR, audit, data, save } from '../store.js';
+import { couponResult } from '../content.js';
 
 export const catalogRouter = Router();
+export const contentRouter = Router();
+export const couponRouter = Router();
 export const ordersRouter = Router();
 
 // What the shop sells and charges. The website loads this when it opens (see client/src/printProducts.js).
 catalogRouter.get('/', (req, res) => {
   res.set('Cache-Control', 'no-cache');
   res.json(data().catalog || {});
+});
+
+// The editable parts of the website: products, home page sections, reviews, categories.
+contentRouter.get('/', (req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  res.json(data().content || {});
+});
+
+// Checks a coupon code against a basket. Rate limited so codes cannot be guessed by trying many.
+const couponLimit = rateLimit({ windowMs: 10 * 60 * 1000, limit: 30, standardHeaders: 'draft-7', legacyHeaders: false, message: { error: 'Too many tries. Please wait a few minutes.' } });
+couponRouter.post('/check', couponLimit, (req, res) => {
+  const code = String(req.body?.code || '').trim().toUpperCase().slice(0, 30);
+  const subtotal = Number(req.body?.subtotal) || 0;
+  const coupon = data().coupons.find((c) => c.code === code);
+  const r = couponResult(coupon, subtotal);
+  if (r.error) return res.status(400).json({ error: r.error });
+  return res.json({ code: coupon.code, description: coupon.description, discount: r.discount });
 });
 
 /* ---------- placing an order ---------- */
@@ -99,18 +119,30 @@ ordersRouter.post('/', orderLimit, (req, res, next) => {
     const customer = cleanCustomer(body.customer);
     const items = cleanItems(body.items);
     const payment = body.payment === 'upi' ? 'upi' : 'cod';
-    const designs = cleanDesigns(body.designs, id);
     const subtotal = Math.round(items.reduce((n, i) => n + (i.unit == null ? 0 : i.unit * i.qty), 0) * 100) / 100; // always worked out here
+    // A coupon is checked again here: the amount is never taken from the browser.
+    const code = str(body.coupon, 30).toUpperCase();
+    let coupon = null;
+    let discount = 0;
+    const found = code ? data().coupons.find((c) => c.code === code) : null;
+    if (code) {
+      const r = couponResult(found, subtotal);
+      if (r.error) throw bad(r.error);
+      discount = r.discount;
+      coupon = { code: found.code, type: found.type, value: found.value, discount };
+    }
     const wishlist = Array.isArray(body.wishlist) ? body.wishlist.slice(0, 30).map((w) => ({ name: str(w?.name, 120), href: str(w?.href, 200) })) : [];
+    const designs = cleanDesigns(body.designs, id);
     const now = new Date().toISOString();
     const order = {
-      id, createdAt: now, status: 'placed', customer, payment, items, designs, subtotal, unpriced: items.filter((i) => i.unit == null).length,
+      id, createdAt: now, status: 'placed', customer, payment, items, designs, subtotal, coupon, discount, total: Math.round((subtotal - discount) * 100) / 100, unpriced: items.filter((i) => i.unit == null).length,
       wishlist, adminNote: '', history: [{ at: now, status: 'placed', by: 'customer' }],
     };
     data().orders.unshift(order);
+    if (found && coupon) found.used += 1;
     audit('customer', 'order.placed', `${id} · ${customer.name}`);
     save();
-    res.status(201).json({ id, placedAt: now, subtotal, unpriced: order.unpriced });
+    res.status(201).json({ id, placedAt: now, subtotal, discount, total: order.total, unpriced: order.unpriced });
   } catch (err) {
     next(err);
   }

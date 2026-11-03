@@ -7,6 +7,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': process.env.API_URL || 'http://localhost:5000',
+      '/uploads': process.env.API_URL || 'http://localhost:5000',
     },
   },
 });

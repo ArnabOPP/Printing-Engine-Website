@@ -11,7 +11,10 @@ admin (a hashed password, a signed `httpOnly` cookie, rate-limited sign-in). Wit
 | Dashboard | Orders, today, revenue, customers, orders needing a price, 14-day chart, status counts, best sellers |
 | Orders | Search and filter, open an order, move it through New → Confirmed → Printing → Ready → Shipped → Delivered (or Cancelled), see the customer's address and the **uploaded artwork** (download it), add a team note, delete (owner only) |
 | Customers | Built from orders (same email or phone = one customer), with their orders and the wishlist they had at checkout |
-| Products & prices | Show or hide categories and products, and edit the DTF, Sublimation and UV DTF rates and the blank T-shirt prices. Changes go live for every visitor |
+| Customise & prices | Show or hide Print on Demand categories and products, and edit the DTF, Sublimation and UV DTF rates and the blank T-shirt prices |
+| Shop products | Add, edit, reorder and remove the ready-made designs (Trending Now and the product pages): name, price, crossed-out original price (shows "% off"), pictures (uploaded), colours, sizes, description, Trending or hidden |
+| Home page & content | Add your own sections (banner, offer strip with a coupon code, text, product row, picture gallery) to the Home, About or Print on Demand page and choose where they sit. Edit the announcement bar, the headings of Trending / Categories / Reviews / How it works (or hide them), the Shop by Category cards, and the "Loved by Our Customers" photos with names and quotes |
+| Coupons & offers | Percentage or fixed-amount codes with a minimum order, a cap, start and end dates, a usage limit, and on/off. Customers enter them at checkout and the discount is worked out on the server |
 | Admin team | (Owner only) add admins, disable or remove them, reset their password |
 | Activity | Who did what, and when |
 | My account | Change your own password |
@@ -47,6 +50,9 @@ Until the server is online, **checkout cannot place orders** (it tells the custo
 
 ## Good to know
 
+- Pictures you upload for the website are stored in `server/data/public/` and are public once uploaded (PNG, JPG, WebP or GIF, up to 8 MB). Back this folder up too.
+- Content changes (products, sections, prices) are loaded when a visitor opens the website, so they appear on the next page load, not instantly on pages already open.
+- Coupons are never sent to visitors' browsers; the server checks them (and re-checks them when the order is placed).
 - Passwords need 10+ characters with letters and a number. After 10 wrong sign-ins in 15 minutes, sign-in pauses.
 - Shoppers do not have logins. A customer's saved details and wishlist live in their own browser; the admin sees the wishlist they had when they ordered.
 - If one customer has several custom designs of the same product in one order, only the latest saved design of that product is attached.

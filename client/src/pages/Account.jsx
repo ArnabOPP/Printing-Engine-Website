@@ -123,7 +123,7 @@ export default function Account() {
                 </ul>
                 <div className="ac-order-foot">
                   <span>{payLabel[o.payment] || o.payment}</span>
-                  <b>{rupees(o.subtotal)}{o.unpriced ? ' + more at confirmation' : ''}</b>
+                  <b>{rupees(o.total ?? o.subtotal)}{o.unpriced ? ' + more at confirmation' : ''}</b>
                 </div>
               </li>
             ))}

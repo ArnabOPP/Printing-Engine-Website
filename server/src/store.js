@@ -8,10 +8,12 @@ import { DATA_DIR } from './config.js';
 // To move to a real database later, only this file needs to change.
 
 const FILE = path.join(DATA_DIR, 'db.json');
-export const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
+export const UPLOAD_DIR = path.join(DATA_DIR, 'uploads'); // customers' artwork: private
+export const PUBLIC_DIR = path.join(DATA_DIR, 'public'); // pictures the team uploads for the website: public
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+fs.mkdirSync(PUBLIC_DIR, { recursive: true });
 
-const fresh = () => ({ admins: [], orders: [], catalog: {}, audit: [] });
+const fresh = () => ({ admins: [], orders: [], catalog: {}, content: {}, coupons: [], audit: [] });
 
 let db;
 try {

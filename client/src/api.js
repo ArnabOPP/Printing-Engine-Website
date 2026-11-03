@@ -39,3 +39,6 @@ export async function fileUrl(path) {
   if (!res.ok) throw new ApiError('Could not load the file.', res.status);
   return URL.createObjectURL(await res.blob());
 }
+
+// Pictures the team uploads live on the shop's server (/uploads/…). Everything else is used as it is.
+export const assetUrl = (src) => (typeof src === 'string' && src.startsWith('/uploads/') ? `${BASE}${src}` : src);

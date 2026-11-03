@@ -38,7 +38,7 @@ export default function Catalog() {
     });
   }, [data]);
 
-  if (!d) return <><PageHead title="Products & prices" /><Loading error={error} loading={loading} /></>;
+  if (!d) return <><PageHead title="Customise & prices" /><Loading error={error} loading={loading} /></>;
 
   const toggle = (key, value) => setD((c) => ({ ...c, [key]: c[key].includes(value) ? c[key].filter((x) => x !== value) : [...c[key], value] }));
   const setRate = (group, key) => (e) => setD((c) => ({ ...c, [group]: { ...c[group], [key]: num(e.target.value) } }));
@@ -76,7 +76,7 @@ export default function Catalog() {
 
   return (
     <>
-      <PageHead title="Products & prices">
+      <PageHead title="Customise & prices">
         <button type="button" className="ad-btn" onClick={reset}>Reset to defaults</button>
         <button type="button" className="ad-btn primary" onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>
       </PageHead>

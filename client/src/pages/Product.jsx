@@ -17,11 +17,14 @@ const perks = [
 const tabs = ['Description', 'Fabric & Care', 'Shipping', 'Reviews'];
 
 function Gallery({ product }) {
-  const views = [
-    { label: 'Front', src: product.img },
-    { label: 'Print detail', src: product.img, crop: true },
-    { label: 'Close up', src: product.img, crop: true, alt: true },
-  ];
+  // With several pictures, each is a view. With one, the other views are zoomed-in crops of it.
+  const views = product.images?.length > 1
+    ? product.images.map((src, i) => ({ label: `Photo ${i + 1}`, src }))
+    : [
+      { label: 'Front', src: product.img },
+      { label: 'Print detail', src: product.img, crop: true },
+      { label: 'Close up', src: product.img, crop: true, alt: true },
+    ];
   const [idx, setIdx] = useState(0);
   const [zoomed, setZoomed] = useState(false);
   const [origin, setOrigin] = useState('50% 50%');
@@ -120,7 +123,7 @@ export default function Product() {
           <h1>{product.name}</h1>
           <span className="pd-brand">{product.brand}</span>
           <div className="pd-price-row">
-            <span className="pd-price">₹{product.price}</span>
+            <span className="pd-price">₹{product.price}{product.comparePrice ? <><s>₹{product.comparePrice}</s><span className="off-badge">{Math.round((1 - product.price / product.comparePrice) * 100)}% off</span></> : null}</span>
             <span className="pd-rating"><Star size={15} fill="currentColor" /> {product.rating} <small>({product.reviewCount} reviews)</small></span>
           </div>
           <p className="pd-blurb">{product.blurb}</p>

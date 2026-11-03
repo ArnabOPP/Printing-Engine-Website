@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
-import { Activity, LayoutDashboard, LogOut, Package, Settings, Store, Tags, Users, UserCog } from 'lucide-react';
+import { Activity, BadgePercent, Home, LayoutDashboard, LogOut, Package, Settings, Shirt, ShoppingBag, Store, Tags, Users, UserCog } from 'lucide-react';
 import { api } from '../api.js';
 import './admin.css';
 import Dashboard from './Dashboard.jsx';
 import Orders from './Orders.jsx';
 import Customers from './Customers.jsx';
 import Catalog from './Catalog.jsx';
+import Products from './Products.jsx';
+import HomePage from './HomePage.jsx';
+import Coupons from './Coupons.jsx';
 import Team from './Team.jsx';
 import { ActivityLog, MyAccount } from './Misc.jsx';
 
@@ -49,7 +52,10 @@ const links = [
   ['/admin', 'Dashboard', LayoutDashboard, true],
   ['/admin/orders', 'Orders', Package],
   ['/admin/customers', 'Customers', Users],
-  ['/admin/catalog', 'Products & prices', Tags],
+  ['/admin/home', 'Home page & content', Home],
+  ['/admin/products', 'Shop products', ShoppingBag],
+  ['/admin/coupons', 'Coupons & offers', BadgePercent],
+  ['/admin/catalog', 'Customise & prices', Shirt],
   ['/admin/team', 'Admin team', UserCog, false, 'owner'],
   ['/admin/activity', 'Activity', Activity],
   ['/admin/account', 'My account', Settings],
@@ -104,6 +110,9 @@ export default function AdminApp() {
           <Route path="orders" element={<Orders admin={admin} />} />
           <Route path="customers" element={<Customers />} />
           <Route path="catalog" element={<Catalog />} />
+          <Route path="home" element={<HomePage />} />
+          <Route path="products" element={<Products />} />
+          <Route path="coupons" element={<Coupons />} />
           <Route path="team" element={admin.role === 'owner' ? <Team me={admin} /> : <Navigate to="/admin" replace />} />
           <Route path="activity" element={<ActivityLog />} />
           <Route path="account" element={<MyAccount admin={admin} />} />

@@ -5,7 +5,8 @@ import {
   Upload, Type, Shapes, Image as ImageIcon, Sticker as StickerIcon, Shirt, PenTool, ShoppingCart, Box, Minus, Plus,
 } from 'lucide-react';
 import { Tee, Mug, Keychain, Tote, Sticker, Frame } from '../components/Art.jsx';
-import { trending, categories, steps, reviews } from '../data.js';
+import { trending, categories, steps, reviews, home } from '../data.js';
+import CustomSections from '../components/CustomSections.jsx';
 import { useWishlist } from '../context/WishlistContext.jsx';
 
 const artFor = { mug: <Mug />, key: <Keychain />, tote: <Tote />, sticker: <Sticker />, frame: <Frame />, tee: <Tee color="#111" lines={['GOOD', 'VIBES']} ink="#fff" /> };
@@ -72,6 +73,7 @@ function Promos() {
 }
 
 function Trending() {
+  if (!home.trending.visible) return null;
   const { has, toggle } = useWishlist();
   const item = (p) => ({ id: `product:${p.slug}`, name: p.name, price: p.price, img: p.img, href: `/product/${p.slug}` });
   const track = useRef(null);
@@ -79,7 +81,7 @@ function Trending() {
   return (
     <section className="wrap section" id="trending">
       <div className="sec-head">
-        <div><h2>Trending Now</h2><p>Popular designs. Loved by our community.</p></div>
+        <div><h2>{home.trending.title}</h2><p>{home.trending.subtitle}</p></div>
         <div className="sec-tools">
           <a href="#trending" className="link">View All <ArrowRight size={14} /></a>
           <button className="circle" onClick={() => scroll(-1)} aria-label="Previous"><ChevronLeft size={16} /></button>
@@ -100,7 +102,7 @@ function Trending() {
                 <h4><Link to={`/product/${p.slug}`}>{p.name}</Link></h4>
                 <button className={`wish-sm${has(`product:${p.slug}`) ? ' on' : ''}`} aria-pressed={has(`product:${p.slug}`)} aria-label={has(`product:${p.slug}`) ? `Remove ${p.name} from wishlist` : `Add ${p.name} to wishlist`} onClick={() => toggle(item(p))}><Heart size={16} /></button>
               </div>
-              <div className="price">{price(p.price)}</div>
+              <div className="price">{price(p.price)}{p.comparePrice ? <><s>{price(p.comparePrice)}</s><span className="off-badge">{Math.round((1 - p.price / p.comparePrice) * 100)}% off</span></> : null}</div>
               <div className="swatches">
                 {p.colors.map((c, i) => <i key={i} style={{ background: c }} />)}
                 {p.more && <small>+{p.more}</small>}
@@ -114,10 +116,11 @@ function Trending() {
 }
 
 function Categories() {
+  if (!home.categories.visible) return null;
   return (
     <section className="wrap section" id="categories">
       <div className="sec-head">
-        <div><h2>Shop by Category</h2><p>Explore our full range of customisable products.</p></div>
+        <div><h2>{home.categories.title}</h2><p>{home.categories.subtitle}</p></div>
         <div className="sec-tools">
           <a href="#categories" className="link">View All <ArrowRight size={14} /></a>
           <button className="circle" aria-label="View all categories"><ChevronRight size={16} /></button>
@@ -125,7 +128,7 @@ function Categories() {
       </div>
       <div className="cats">
         {categories.map((c) => (
-          <a href="#categories" className="cat" key={c.name}>
+          <a href={c.link || '#categories'} className="cat" key={c.name}>
             <div className="cat-img"><img src={c.img} alt={c.name} loading="lazy" /></div>
             <h4>{c.name}</h4><span>{c.sub}</span>
           </a>
@@ -243,10 +246,11 @@ function Feature() {
 }
 
 function How() {
+  if (!home.how.visible) return null;
   return (
     <section className="wrap section" id="how">
       <div className="sec-head inline">
-        <h2>How It Works</h2><p>From idea to your doorstep — simple and easy.</p>
+        <h2>{home.how.title}</h2><p>{home.how.subtitle}</p>
         <a href="#how" className="link push">Learn More <ArrowRight size={14} /></a>
       </div>
       <div className="steps">
@@ -266,20 +270,22 @@ function How() {
 
 function Reviews() {
   const track = useRef(null);
+  if (!home.reviews.visible || !reviews.length) return null;
   const scroll = (d) => track.current?.scrollBy({ left: d * 280, behavior: 'smooth' });
   return (
     <section className="wrap section">
       <div className="sec-head">
-        <div><h2>Loved by Our Customers</h2><p>Real products. Real stories.</p></div>
+        <div><h2>{home.reviews.title}</h2><p>{home.reviews.subtitle}</p></div>
         <a href="#how" className="link">View All Reviews <ArrowRight size={14} /></a>
       </div>
       <div className="reviews-wrap">
         <button className="circle l" onClick={() => scroll(-1)} aria-label="Previous"><ChevronLeft size={16} /></button>
         <div className="track reviews" ref={track}>
           {reviews.map((r, i) => (
-            <div className="rev" key={i}>
-              <img src={r.img} alt={r.alt} loading="lazy" />
-            </div>
+            <figure className="rev" key={r.id || i}>
+              <img src={r.img} alt={r.alt || r.name || 'Customer photo'} loading="lazy" />
+              {(r.name || r.quote) && <figcaption>{r.quote && <>“{r.quote}”</>}{r.name && <b> {r.name}</b>}</figcaption>}
+            </figure>
           ))}
         </div>
         <button className="circle r" onClick={() => scroll(1)} aria-label="Next"><ChevronRight size={16} /></button>
@@ -289,16 +295,27 @@ function Reviews() {
 }
 
 export default function Home() {
+  const slot = (name) => <CustomSections page="home" slot={name} />;
   return (
     <>
+      {slot('top')}
       <Hero />
+      {slot('hero')}
       <Promos />
+      {slot('promos')}
       <Trending />
+      {slot('trending')}
       <Categories />
+      {slot('categories')}
       <Customiser />
+      {slot('customiser')}
       <Feature />
+      {slot('feature')}
       <How />
+      {slot('how')}
       <Reviews />
+      {slot('reviews')}
+      {slot('bottom')}
     </>
   );
 }

@@ -24,7 +24,7 @@ export default function Dashboard() {
       <div className="ad-tiles">
         <Tile icon={Package} label="Orders" value={totals.orders} hint={`${totals.open} open`} />
         <Tile icon={CalendarDays} label="Today" value={totals.today} hint={rupees(totals.todayRevenue)} />
-        <Tile icon={IndianRupee} label="Revenue (priced items)" value={rupees(totals.revenue)} hint="cancelled orders left out" />
+        <Tile icon={IndianRupee} label="Revenue (priced items)" value={rupees(totals.revenue)} hint={totals.discounts ? `after ${rupees(totals.discounts)} of coupons` : 'cancelled orders left out'} />
         <Tile icon={Users} label="Customers" value={totals.customers} />
         <Tile icon={AlertCircle} label="Need a price" value={totals.needsPrice} hint="orders with unpriced items" />
       </div>
@@ -63,7 +63,7 @@ export default function Dashboard() {
                     <td><Link to={`/admin/orders?open=${o.id}`}><b>{o.id}</b></Link><small>{fmtTime(o.createdAt)}</small></td>
                     <td>{o.customer.name}<small>{o.customer.city}</small></td>
                     <td><StatusBadge status={o.status} /></td>
-                    <td className="num">{o.unpriced ? `${rupees(o.subtotal)}+` : rupees(o.subtotal)}</td>
+                    <td className="num">{o.unpriced ? `${rupees(o.total ?? o.subtotal)}+` : rupees(o.total ?? o.subtotal)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -131,7 +131,11 @@ function OrderPanel({ id, admin, onClose, onChanged }) {
                     </tr>
                   ))}
                 </tbody>
-                <tfoot><tr><td>Total of priced items</td><td /><td className="num"><b>{rupees(o.subtotal)}</b></td></tr></tfoot>
+                <tfoot>
+                  <tr><td>Priced items</td><td /><td className="num">{rupees(o.subtotal)}</td></tr>
+                  {o.coupon && <tr><td>Coupon <b>{o.coupon.code}</b></td><td /><td className="num">− {rupees(o.discount)}</td></tr>}
+                  <tr><td>Customer pays</td><td /><td className="num"><b>{rupees(o.total ?? o.subtotal)}</b></td></tr>
+                </tfoot>
               </table>
               <p className="ad-muted">Prices are the customer’s estimate at checkout. Confirm the final price and shipping with them.</p>
             </section>
@@ -210,7 +214,7 @@ export default function Orders({ admin }) {
                     <td><StatusBadge status={o.status} />{o.hasArtwork && <small>has artwork</small>}</td>
                     <td>{o.pieces}</td>
                     <td>{PAY_LABEL[o.payment]}</td>
-                    <td className="num">{rupees(o.subtotal)}{o.unpriced ? <small className="ad-warn">+ unpriced</small> : null}</td>
+                    <td className="num">{rupees(o.total ?? o.subtotal)}{o.discount ? <small>coupon −{rupees(o.discount)}</small> : null}{o.unpriced ? <small className="ad-warn">+ unpriced</small> : null}</td>
                   </tr>
                 ))}
               </tbody>

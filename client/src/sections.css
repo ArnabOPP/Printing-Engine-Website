@@ -1,0 +1,30 @@
+/* ===== Sections added from the admin panel ===== */
+.cs { margin-top: 28px; }
+.cs-text { max-width: 760px; }
+.cs-text p { color: var(--muted); line-height: 1.65; margin: 0 0 12px; }
+.cs-text .btn { margin-top: 6px; }
+.cs-banner { position: relative; min-height: 300px; display: flex; align-items: center; padding: 40px; border-radius: 22px; overflow: hidden; background: #111 center / cover no-repeat; color: #fff; isolation: isolate; }
+.cs-banner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.15)); z-index: -1; }
+.cs-banner > div { max-width: 520px; display: grid; gap: 12px; justify-items: start; }
+.cs-banner h2 { margin: 0; font-family: 'Barlow Condensed', sans-serif; font-size: clamp(34px, 4.4vw, 56px); line-height: 1; font-weight: 800; }
+.cs-banner p { margin: 0; font-size: 14px; line-height: 1.55; opacity: 0.92; }
+.cs-banner .cs-sub { font-size: 16px; font-weight: 600; }
+.cs-offer { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; padding: 18px 24px; border-radius: 16px; background: var(--lime); color: #0d0d0f; }
+.cs-offer h3 { margin: 0; font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 800; }
+.cs-offer p { margin: 2px 0 0; font-size: 13.5px; }
+.cs-offer .btn { background: #0d0d0f; color: #fff; }
+.cs-code { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border: 2px dashed currentColor; border-radius: 10px; font-size: 14px; letter-spacing: 0.08em; cursor: pointer; color: inherit; background: rgba(255, 255, 255, 0.12); }
+.cs-products { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; margin-bottom: 16px; }
+.cs-product { display: grid; gap: 6px; font-size: 13px; }
+.cs-product-img { aspect-ratio: 1; border-radius: 14px; overflow: hidden; background: radial-gradient(circle at 50% 30%, #3a3a3a, #121212 75%); }
+.cs-product-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
+.cs-product:hover img { transform: scale(1.04); }
+.cs-product s { margin-left: 8px; color: var(--muted); font-size: 12px; }
+.cs-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.cs-gallery img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 14px; }
+.price s, .pd-price s { margin-left: 8px; color: var(--muted); font-size: 0.8em; font-weight: 500; }
+.off-badge { margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: #ff4d6d; color: #fff; font-size: 11px; font-weight: 800; }
+.rev figcaption { padding: 8px 10px; font-size: 12px; }
+@media (max-width: 700px) {
+  .cs-banner { padding: 26px; min-height: 240px; }
+}

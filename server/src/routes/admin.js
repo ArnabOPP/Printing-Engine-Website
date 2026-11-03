@@ -5,11 +5,16 @@ import rateLimit from 'express-rate-limit';
 import {
   checkLogin, endSession, hashPassword, passwordProblem, publicAdmin, requireAdmin, requireOwner, startSession,
 } from '../auth.js';
-import { UPLOAD_DIR, audit, data, newId, save } from '../store.js';
+import crypto from 'node:crypto';
+import { PUBLIC_DIR, UPLOAD_DIR, audit, data, newId, save } from '../store.js';
+import { cleanContent, cleanCoupon } from '../content.js';
 
 const router = Router();
 
 export const STATUSES = ['placed', 'confirmed', 'printing', 'ready', 'shipped', 'delivered', 'cancelled'];
+
+// What the customer pays: the items minus any coupon. Orders from before coupons existed have no `total`.
+const amount = (o) => o.total ?? o.subtotal;
 
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status });
 const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -60,7 +65,7 @@ router.post('/me/password', async (req, res, next) => {
 
 const orderRow = (o) => ({
   id: o.id, createdAt: o.createdAt, status: o.status, customer: { name: o.customer.name, phone: o.customer.phone, city: o.customer.city },
-  pieces: o.items.reduce((n, i) => n + i.qty, 0), subtotal: o.subtotal, unpriced: o.unpriced, payment: o.payment, hasArtwork: Object.keys(o.designs || {}).length > 0,
+  pieces: o.items.reduce((n, i) => n + i.qty, 0), subtotal: o.subtotal, total: amount(o), discount: o.discount || 0, unpriced: o.unpriced, payment: o.payment, hasArtwork: Object.keys(o.designs || {}).length > 0,
 });
 
 router.get('/orders', (req, res) => {
@@ -140,7 +145,7 @@ function customers() {
     const key = o.customer.email || o.customer.phone;
     const c = map.get(key) || { key, name: o.customer.name, phone: o.customer.phone, email: o.customer.email, city: o.customer.city, state: o.customer.state, orders: 0, spent: 0, firstOrderAt: o.createdAt, lastOrderAt: o.createdAt, saved: new Map(), orderIds: [] };
     c.orders += 1;
-    if (o.status !== 'cancelled') c.spent += o.subtotal;
+    if (o.status !== 'cancelled') c.spent += amount(o);
     if (o.createdAt < c.firstOrderAt) c.firstOrderAt = o.createdAt;
     if (o.createdAt > c.lastOrderAt) { c.lastOrderAt = o.createdAt; c.name = o.customer.name; c.phone = o.customer.phone; c.city = o.customer.city; c.state = o.customer.state; }
     for (const w of o.wishlist || []) c.saved.set(w.href || w.name, w);
@@ -169,7 +174,7 @@ router.get('/stats', (req, res) => {
     d.setDate(d.getDate() - i);
     const key = d.toLocaleDateString('en-CA'); // YYYY-MM-DD in the server's time zone
     const day = live.filter((o) => new Date(o.createdAt).toLocaleDateString('en-CA') === key);
-    days.push({ date: key, orders: day.length, revenue: Math.round(day.reduce((n, o) => n + o.subtotal, 0)) });
+    days.push({ date: key, orders: day.length, revenue: Math.round(day.reduce((n, o) => n + amount(o), 0)) });
   }
   const top = new Map();
   live.forEach((o) => o.items.forEach((i) => top.set(i.name, (top.get(i.name) || 0) + i.qty)));
@@ -178,7 +183,8 @@ router.get('/stats', (req, res) => {
     totals: {
       orders: orders.length,
       open: orders.filter((o) => ['placed', 'confirmed', 'printing', 'ready'].includes(o.status)).length,
-      revenue: Math.round(live.reduce((n, o) => n + o.subtotal, 0)),
+      revenue: Math.round(live.reduce((n, o) => n + amount(o), 0)),
+      discounts: Math.round(live.reduce((n, o) => n + (o.discount || 0), 0)),
       customers: customers().length,
       today: today.orders,
       todayRevenue: today.revenue,
@@ -235,6 +241,84 @@ router.put('/catalog', (req, res, next) => {
     audit(req.admin.email, 'catalog.updated');
     save();
     res.json({ catalog: data().catalog });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* ---------- website content: products, home page sections, reviews ---------- */
+
+router.get('/content', (req, res) => res.json({ content: data().content || {} }));
+
+router.put('/content', (req, res, next) => {
+  try {
+    data().content = cleanContent(req.body?.content || {});
+    audit(req.admin.email, 'content.updated');
+    save();
+    res.json({ content: data().content });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Pictures for the website (products, banners, reviews). They are public once uploaded, so only safe image types are allowed.
+const IMG = /^data:image\/(png|jpeg|webp|gif);base64,([A-Za-z0-9+/=]+)$/;
+router.post('/uploads', (req, res, next) => {
+  try {
+    const m = IMG.exec(String(req.body?.data || ''));
+    if (!m) throw bad('Upload a PNG, JPG, WebP or GIF picture.');
+    const buf = Buffer.from(m[2], 'base64');
+    if (buf.length > 8 * 1024 * 1024) throw bad('That picture is over 8 MB. Please use a smaller one.');
+    const name = `${Date.now().toString(36)}${crypto.randomBytes(4).toString('hex')}.${m[1] === 'jpeg' ? 'jpg' : m[1]}`;
+    fs.writeFileSync(path.join(PUBLIC_DIR, name), buf);
+    audit(req.admin.email, 'upload', name);
+    save();
+    res.status(201).json({ url: `/uploads/${name}` });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* ---------- coupons and offers ---------- */
+
+router.get('/coupons', (req, res) => res.json({ coupons: data().coupons }));
+
+router.post('/coupons', (req, res, next) => {
+  try {
+    const c = cleanCoupon(req.body || {});
+    if (data().coupons.some((x) => x.code === c.code)) throw bad('A coupon with this code already exists.');
+    data().coupons.unshift(c);
+    audit(req.admin.email, 'coupon.created', c.code);
+    save();
+    res.status(201).json({ coupon: c });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/coupons/:id', (req, res, next) => {
+  try {
+    const i = data().coupons.findIndex((x) => x.id === req.params.id);
+    if (i < 0) throw bad('Coupon not found.', 404);
+    const c = cleanCoupon(req.body || {}, data().coupons[i]);
+    if (data().coupons.some((x) => x.code === c.code && x.id !== c.id)) throw bad('A coupon with this code already exists.');
+    data().coupons[i] = c;
+    audit(req.admin.email, 'coupon.updated', c.code);
+    save();
+    res.json({ coupon: c });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/coupons/:id', (req, res, next) => {
+  try {
+    const c = data().coupons.find((x) => x.id === req.params.id);
+    if (!c) throw bad('Coupon not found.', 404);
+    data().coupons = data().coupons.filter((x) => x !== c);
+    audit(req.admin.email, 'coupon.deleted', c.code);
+    save();
+    res.json({ ok: true });
   } catch (err) {
     next(err);
   }

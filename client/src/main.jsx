@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { api } from './api.js';
 import { applyCatalog } from './printProducts.js';
+import { applyContent } from './data.js';
 import { CartProvider } from './context/CartContext.jsx';
 import { WishlistProvider } from './context/WishlistContext.jsx';
 import './index.css';
@@ -14,6 +15,7 @@ import './size-chart.css';
 import './nav-shop.css';
 import './checkout.css';
 import './wishlist-account.css';
+import './sections.css';
 
 // Load the shop's saved prices and visibility before showing anything, so the first page is already right.
 // If the server is slow or away, the built-in defaults are used.
@@ -21,9 +23,10 @@ async function loadCatalog() {
   try {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), 2500);
-    const c = await api('/api/catalog', { signal: ctl.signal });
+    const [catalog, content] = await Promise.all([api('/api/catalog', { signal: ctl.signal }), api('/api/content', { signal: ctl.signal })]);
     clearTimeout(t);
-    applyCatalog(c);
+    applyCatalog(catalog);
+    applyContent(content);
   } catch { /* use the defaults */ }
 }
 

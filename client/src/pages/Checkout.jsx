@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Check, ChevronRight, Lock, Minus, PackageCheck, Plus, ShoppingBag, Trash2, Truck } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, Lock, Minus, PackageCheck, Plus, ShoppingBag, Tag, Trash2, Truck, X } from 'lucide-react';
 import { useCart } from '../context/CartContext.jsx';
 import { rupees } from '../studio/pricing.js';
 import { readAccount, writeAccount } from '../account.js';
@@ -36,6 +36,10 @@ export default function Checkout() {
   const [placed, setPlaced] = useState(null);
   const [sending, setSending] = useState(false);
   const [failure, setFailure] = useState('');
+  const [codeText, setCodeText] = useState('');
+  const [coupon, setCoupon] = useState(null); // { code, description, discount } once the server has accepted it
+  const [couponMsg, setCouponMsg] = useState('');
+  const [checking, setChecking] = useState(false);
   const { items: wishlist } = useWishlist();
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [placed]);
@@ -45,6 +49,33 @@ export default function Checkout() {
   const unpriced = items.length - priced.length;
   const subtotal = priced.reduce((n, i) => n + i.unit * i.qty, 0);
   const pieces = items.reduce((n, i) => n + i.qty, 0);
+  const discount = coupon ? Math.min(coupon.discount, subtotal) : 0;
+  const total = subtotal - discount;
+
+  // The discount depends on the basket, so it is checked again whenever the basket changes.
+  useEffect(() => {
+    if (!coupon) return undefined;
+    let live = true;
+    api('/api/coupons/check', { method: 'POST', body: { code: coupon.code, subtotal } })
+      .then((r) => { if (live) setCoupon(r); })
+      .catch((e) => { if (live) { setCoupon(null); setCouponMsg(e.message); } });
+    return () => { live = false; };
+  }, [subtotal]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const applyCode = async () => {
+    const code = codeText.trim();
+    if (!code || checking) return;
+    setChecking(true);
+    setCouponMsg('');
+    try {
+      setCoupon(await api('/api/coupons/check', { method: 'POST', body: { code, subtotal } }));
+      setCodeText('');
+    } catch (e) {
+      setCouponMsg(e.message);
+    } finally {
+      setChecking(false);
+    }
+  };
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const blur = (key) => () => setTouched((t) => ({ ...t, [key]: true }));
@@ -75,12 +106,13 @@ export default function Checkout() {
         body: {
           customer: form,
           payment: pay,
+          coupon: coupon?.code || '',
           items: items.map(({ name, detail, img, qty, unit, slug, config }) => ({ name, detail, img, qty, unit, slug, config })),
           designs,
           wishlist: wishlist.map(({ name, href }) => ({ name, href })),
         },
       });
-      const order = { id: sent.id, placedAt: sent.placedAt, customer: form, payment: pay, items, subtotal: sent.subtotal, unpriced: sent.unpriced };
+      const order = { id: sent.id, placedAt: sent.placedAt, customer: form, payment: pay, items, subtotal: sent.subtotal, discount: sent.discount, total: sent.total, coupon: coupon?.code || '', unpriced: sent.unpriced };
       // A copy stays on this device so it shows under "My account".
       try {
         const all = JSON.parse(localStorage.getItem('orders') || '[]');
@@ -121,7 +153,7 @@ export default function Checkout() {
             <dt>Items</dt>
             <dd>{placed.items.map((i) => `${i.name} × ${i.qty}`).join(', ')}</dd>
             <dt>Estimated total</dt>
-            <dd><b>{rupees(placed.subtotal)}</b>{placed.unpriced ? ` + ${placed.unpriced} item${placed.unpriced > 1 ? 's' : ''} priced at confirmation` : ''} (shipping confirmed with you)</dd>
+            <dd><b>{rupees(placed.total ?? placed.subtotal)}</b>{placed.discount ? ` (you saved ${rupees(placed.discount)} with ${placed.coupon})` : ''}{placed.unpriced ? ` + ${placed.unpriced} item${placed.unpriced > 1 ? 's' : ''} priced at confirmation` : ''} (shipping confirmed with you)</dd>
           </dl>
           <p className="co-note">Online payment is not connected yet, so nothing has been charged.</p>
           <div className="co-done-links">
@@ -218,11 +250,25 @@ export default function Checkout() {
             ))}
           </ul>
 
+          <div className="co-coupon">
+            {coupon ? (
+              <p className="co-coupon-on"><Tag size={14} /> <b>{coupon.code}</b> applied{coupon.description ? ` · ${coupon.description}` : ''}
+                <button type="button" onClick={() => { setCoupon(null); setCouponMsg(''); }} aria-label="Remove coupon"><X size={14} /></button></p>
+            ) : (
+              <div className="co-coupon-row">
+                <input value={codeText} onChange={(e) => setCodeText(e.target.value.toUpperCase())} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyCode(); } }} placeholder="Coupon code" aria-label="Coupon code" maxLength={30} />
+                <button type="button" className="btn btn-ghost" onClick={applyCode} disabled={checking || !codeText.trim()}>{checking ? '…' : 'Apply'}</button>
+              </div>
+            )}
+            {couponMsg && <small role="alert">{couponMsg}</small>}
+          </div>
+
           <dl className="co-totals">
             <div><dt>Subtotal</dt><dd>{rupees(subtotal)}</dd></div>
+            {discount > 0 && <div className="save"><dt>Coupon {coupon.code}</dt><dd>− {rupees(discount)}</dd></div>}
             <div><dt><Truck size={13} /> Shipping</dt><dd>Confirmed with you</dd></div>
             {unpriced > 0 && <div className="note"><dt>{unpriced} item{unpriced > 1 ? 's' : ''} priced when we confirm</dt><dd /></div>}
-            <div className="total"><dt>Estimated total</dt><dd>{rupees(subtotal)}</dd></div>
+            <div className="total"><dt>Estimated total</dt><dd>{rupees(total)}</dd></div>
           </dl>
 
           <button type="submit" className="btn btn-lime-solid co-go" disabled={sending}>{sending ? 'Placing your order…' : 'Place order'}</button>

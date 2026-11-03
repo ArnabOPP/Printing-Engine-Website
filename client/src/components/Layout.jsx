@@ -4,6 +4,7 @@ import { Search, User, Heart, ShoppingBag, Moon, Sun, ChevronDown, ArrowRight, M
 import { siInstagram, siFacebook, siWhatsapp, siYoutube, siVisa, siMastercard } from 'simple-icons';
 import { useCart } from '../context/CartContext.jsx';
 import { useWishlist } from '../context/WishlistContext.jsx';
+import { home } from '../data.js';
 
 function getInitialTheme() {
   try {
@@ -102,7 +103,12 @@ export default function Layout() {
     <>
       <div className="topbar">
         <div className="wrap topbar-in">
-          <span className="topbar-left"><span className="dot" />Your Ideas. Our Prints. Endless Possibilities.</span>
+          <span className="topbar-left">{home.announcement.active && home.announcement.text ? (
+            <>
+              <span className="dot" />
+              {home.announcement.link ? <a href={home.announcement.link}>{home.announcement.text}</a> : home.announcement.text}
+            </>
+          ) : null}</span>
           <span className="topbar-right">
             <a href="/#how">Track Order</a>
             <a href="/#how">Help</a>

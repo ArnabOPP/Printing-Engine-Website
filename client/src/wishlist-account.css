@@ -54,3 +54,14 @@
   .ac-quick { grid-template-columns: 1fr; }
   .ac-head { align-items: flex-start; }
 }
+
+/* ===== Coupon box at checkout ===== */
+.co-coupon { display: grid; gap: 6px; }
+.co-coupon-row { display: flex; gap: 8px; }
+.co-coupon-row input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; font-size: 13px; letter-spacing: 0.06em; }
+.co-coupon-row .btn { padding: 10px 16px; font-size: 12.5px; }
+.co-coupon-on { display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--lime) 16%, transparent); font-size: 12.5px; }
+.co-coupon-on button { margin-left: auto; color: var(--muted); cursor: pointer; display: grid; place-items: center; }
+.co-coupon small { color: #ff6b6b; font-weight: 600; }
+.co-totals .save dd { color: var(--lime-ink); }
+:root[data-theme='dark'] .co-totals .save dd { color: var(--lime); }
