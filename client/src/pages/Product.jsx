@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
-  Star, ZoomIn, ZoomOut, Minus, Plus, ShoppingBag, Zap, Check, Printer, Leaf, Banknote, RotateCcw, Ruler, ChevronRight,
-} from 'lucide-react';
+  Star, ZoomIn, ZoomOut, Minus, Plus, ShoppingBag, Zap, Check, Printer, Leaf, Banknote, RotateCcw, Ruler, ChevronRight, Heart } from 'lucide-react';
 import { products } from '../data.js';
 import { useCart } from '../context/CartContext.jsx';
+import { useWishlist } from '../context/WishlistContext.jsx';
 import NotFound from './NotFound.jsx';
 
 const perks = [
@@ -64,6 +64,7 @@ export default function Product() {
   const product = products.find((p) => p.slug === slug);
   const { add } = useCart();
   const navigate = useNavigate();
+  const { has, toggle } = useWishlist();
 
   const [color, setColor] = useState(0);
   const [size, setSize] = useState(null);
@@ -151,6 +152,9 @@ export default function Product() {
 
           <button className="btn btn-lime-solid pd-cta" onClick={addToCart}><ShoppingBag size={18} /> Add to Cart</button>
           <button className="btn pd-buy" onClick={buyNow}><Zap size={18} /> Buy Now</button>
+          <button type="button" className={`btn pd-save${has(`product:${product.slug}`) ? ' on' : ''}`} aria-pressed={has(`product:${product.slug}`)} onClick={() => toggle({ id: `product:${product.slug}`, name: product.name, price: product.price, img: product.img, href: `/product/${product.slug}` })}>
+            <Heart size={18} fill={has(`product:${product.slug}`) ? 'currentColor' : 'none'} /> {has(`product:${product.slug}`) ? 'Saved to wishlist' : 'Save to wishlist'}
+          </button>
           <p className="pd-note" role="status" aria-live="polite">{note}</p>
         </div>
       </div>

@@ -7,6 +7,8 @@ import PrintOnDemand from './pages/PrintOnDemand.jsx';
 import Customise from './pages/Customise.jsx';
 import Design from './pages/Design.jsx';
 import Checkout from './pages/Checkout.jsx';
+import Wishlist from './pages/Wishlist.jsx';
+import Account from './pages/Account.jsx';
 import NotFound from './pages/NotFound.jsx';
 
 export default function App() {
@@ -20,6 +22,8 @@ export default function App() {
         <Route path="customise/:slug" element={<Customise />} />
         <Route path="design/:slug" element={<Design />} />
         <Route path="checkout" element={<Checkout />} />
+        <Route path="wishlist" element={<Wishlist />} />
+        <Route path="account" element={<Account />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

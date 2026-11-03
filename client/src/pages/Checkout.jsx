@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Check, ChevronRight, Lock, Minus, PackageCheck, Plus, ShoppingBag, Trash2, Truck } from 'lucide-react';
 import { useCart } from '../context/CartContext.jsx';
 import { rupees } from '../studio/pricing.js';
+import { readAccount, writeAccount } from '../account.js';
 
 const payments = [
   { id: 'cod', title: 'Cash on delivery', text: 'Pay in cash when your order arrives.' },
@@ -28,7 +29,8 @@ const orderId = () => `PE-${Date.now().toString(36).toUpperCase().slice(-6)}${Ma
 
 export default function Checkout() {
   const { items, setQty, remove, clear } = useCart();
-  const [form, setForm] = useState(EMPTY);
+  const [form, setForm] = useState(() => ({ ...EMPTY, ...readAccount() }));
+  const [keep, setKeep] = useState(true); // save these details to the account
   const [touched, setTouched] = useState({});
   const [pay, setPay] = useState('cod');
   const [placed, setPlaced] = useState(null);
@@ -66,6 +68,7 @@ export default function Checkout() {
       const all = JSON.parse(localStorage.getItem('orders') || '[]');
       localStorage.setItem('orders', JSON.stringify([order, ...(Array.isArray(all) ? all : [])].slice(0, 50)));
     } catch { /* ignore */ }
+    if (keep) { const { note, ...details } = form; writeAccount(details); }
     clear();
     setPlaced(order);
   };
@@ -150,6 +153,7 @@ export default function Checkout() {
               {field('state', 'State', { auto: 'address-level1' })}
               {field('pin', 'PIN code', { mode: 'numeric', auto: 'postal-code', max: 6, ph: '700001' })}
             </div>
+            <label className="co-keep"><input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} /> Save these details to my account for next time</label>
             {field('note', 'Note for us (optional)', { area: true, ph: 'Anything we should know about your design or delivery' })}
           </section>
 

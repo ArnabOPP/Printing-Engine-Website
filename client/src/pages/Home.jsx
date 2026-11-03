@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Tee, Mug, Keychain, Tote, Sticker, Frame } from '../components/Art.jsx';
 import { trending, categories, steps, reviews } from '../data.js';
+import { useWishlist } from '../context/WishlistContext.jsx';
 
 const artFor = { mug: <Mug />, key: <Keychain />, tote: <Tote />, sticker: <Sticker />, frame: <Frame />, tee: <Tee color="#111" lines={['GOOD', 'VIBES']} ink="#fff" /> };
 const stepIcon = { shirt: Shirt, pen: PenTool, cart: ShoppingCart, box: Box };
@@ -71,6 +72,8 @@ function Promos() {
 }
 
 function Trending() {
+  const { has, toggle } = useWishlist();
+  const item = (p) => ({ id: `product:${p.slug}`, name: p.name, price: p.price, img: p.img, href: `/product/${p.slug}` });
   const track = useRef(null);
   const scroll = (d) => track.current?.scrollBy({ left: d * 280, behavior: 'smooth' });
   return (
@@ -87,7 +90,7 @@ function Trending() {
         {trending.map((p) => (
           <article className="card" key={p.name}>
             <div className="card-img">
-              <button className="wish" aria-label="Add to wishlist"><Heart size={18} /></button>
+              <button className={`wish${has(`product:${p.slug}`) ? ' on' : ''}`} aria-pressed={has(`product:${p.slug}`)} aria-label={has(`product:${p.slug}`) ? `Remove ${p.name} from wishlist` : `Add ${p.name} to wishlist`} onClick={() => toggle(item(p))}><Heart size={18} /></button>
               <Link to={`/product/${p.slug}`} aria-label={`View ${p.name}`}>
                 <img src={p.img} alt={p.name} loading="lazy" width="400" height="400" />
               </Link>
@@ -95,7 +98,7 @@ function Trending() {
             <div className="card-body">
               <div className="card-row">
                 <h4><Link to={`/product/${p.slug}`}>{p.name}</Link></h4>
-                <button className="wish-sm" aria-label={`Wishlist ${p.name}`}><Heart size={16} /></button>
+                <button className={`wish-sm${has(`product:${p.slug}`) ? ' on' : ''}`} aria-pressed={has(`product:${p.slug}`)} aria-label={has(`product:${p.slug}`) ? `Remove ${p.name} from wishlist` : `Add ${p.name} to wishlist`} onClick={() => toggle(item(p))}><Heart size={16} /></button>
               </div>
               <div className="price">{price(p.price)}</div>
               <div className="swatches">

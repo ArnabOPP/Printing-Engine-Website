@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { CartProvider } from './context/CartContext.jsx';
+import { WishlistProvider } from './context/WishlistContext.jsx';
 import './index.css';
 import './studio.css';
 import './studio-sleeves.css';
@@ -10,12 +11,15 @@ import './studio-pricing.css';
 import './size-chart.css';
 import './nav-shop.css';
 import './checkout.css';
+import './wishlist-account.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <CartProvider>
-        <App />
+        <WishlistProvider>
+          <App />
+        </WishlistProvider>
       </CartProvider>
     </BrowserRouter>
   </React.StrictMode>

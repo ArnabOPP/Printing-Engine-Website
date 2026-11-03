@@ -1,0 +1,56 @@
+.co-keep { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; font-size: 12.5px; color: var(--muted); cursor: pointer; }
+.co-keep input { accent-color: var(--lime); width: 16px; height: 16px; }
+
+/* ===== Wishlist ===== */
+.wl { padding-bottom: 72px; }
+.wl-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 20px; }
+.wl-head h1 { margin: 6px 0 0; }
+.wl-head span { color: var(--muted); font-size: 13px; }
+.wl-empty-title { margin: 0; font-size: 22px; font-weight: 800; }
+.wl-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 18px; }
+.wl-card { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; display: grid; }
+.wl-img { aspect-ratio: 1; display: grid; place-items: center; background: radial-gradient(circle at 50% 30%, #3a3a3a, #121212 75%); color: var(--muted); }
+.wl-img img { width: 100%; height: 100%; object-fit: cover; }
+.wl-body { padding: 12px 14px 14px; display: grid; gap: 6px; }
+.wl-body h3 { margin: 0; font-size: 13px; font-weight: 700; }
+.wl-body p { margin: 0; font-size: 13px; color: var(--muted); }
+.wl-actions { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.wl-actions .btn { flex: 1; justify-content: center; padding: 10px 12px; font-size: 12px; }
+.wl-remove { width: 38px; height: 38px; border: 1px solid var(--border); border-radius: 10px; display: grid; place-items: center; color: var(--muted); cursor: pointer; }
+.wl-remove:hover { color: #ff6b6b; border-color: #ff6b6b; }
+.wish.on, .wish-sm.on { color: #ff4d6d; }
+.wish.on svg, .wish-sm.on svg { fill: currentColor; }
+.pd-save { width: 100%; justify-content: center; margin-top: 8px; }
+.pd-save.on { color: #ff4d6d; border-color: #ff4d6d; }
+
+/* ===== Account ===== */
+.ac .co-main { margin-bottom: 18px; }
+.ac-head { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+.ac-head h1 { margin: 0 0 4px; }
+.ac-avatar { flex: none; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--lime); color: #0d0d0f; font-size: 26px; font-weight: 800; }
+.ac-quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
+.ac-quick a { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 12px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.ac-quick a svg { grid-row: span 2; color: var(--lime-ink); }
+:root[data-theme='dark'] .ac-quick a svg { color: var(--lime); }
+.ac-quick b { font-size: 20px; font-weight: 800; }
+.ac-quick span { font-size: 12px; color: var(--muted); }
+.ac-save { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.ac-ok { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--lime-ink); }
+:root[data-theme='dark'] .ac-ok { color: var(--lime); }
+.ac-link { font-weight: 700; text-decoration: underline; }
+.ac-orders, .ac-danger { margin-bottom: 18px; }
+.ac-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.ac-list > li { border: 1px solid var(--border); border-radius: 14px; background: var(--bg); padding: 14px 16px; display: grid; gap: 10px; }
+.ac-order-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 13px; }
+.ac-order-top small { margin-left: auto; color: var(--muted); }
+.ac-status { padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; background: color-mix(in srgb, var(--lime) 18%, transparent); }
+.ac-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+.ac-lines li { display: flex; justify-content: space-between; gap: 12px; }
+.ac-lines small { color: var(--muted); }
+.ac-order-foot { display: flex; justify-content: space-between; gap: 12px; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 12.5px; color: var(--muted); }
+.ac-order-foot b { color: var(--text); }
+.ac-del { background: #ff4d6d; color: #fff; border-color: #ff4d6d; }
+@media (max-width: 560px) {
+  .ac-quick { grid-template-columns: 1fr; }
+  .ac-head { align-items: flex-start; }
+}
