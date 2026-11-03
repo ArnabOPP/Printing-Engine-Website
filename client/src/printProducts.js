@@ -21,7 +21,7 @@ const groups = [
     name: 'Printing Services',
     blurb: 'Send us your artwork and choose the print method.',
     items: [
-      { name: 'DTF Printing', icon: 'Printer' },
+      { name: 'DTF Printing', icon: 'Printer', img: '/dtf-printing.jpg' },
       { name: 'Sublimation Printing', icon: 'Droplets' },
       { name: 'UV DTF Printing', icon: 'Layers' },
     ],
