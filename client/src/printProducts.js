@@ -186,6 +186,9 @@ export const sheetCost = (sp, sheet) => Math.round(((sheet.w * sheet.h) / A4_MM2
 const DEFAULT_AUDIENCES = ['men', 'unisex', 'kids'];
 const audienceOptions = {};
 
+// Categories kept out of the Print on Demand page for now. Remove an id from this list to show it again.
+const hiddenGroups = ['customised-products', 'cards-identification', 'stickers-labels', 'business-printing'];
+
 export const printGroups = groups.map((g, gi) => ({
   ...g,
   number: String(gi + 1).padStart(2, '0'),
@@ -201,6 +204,6 @@ export const printGroups = groups.map((g, gi) => ({
     customSheet: customSheetProducts.includes(it.name),
     audiences: audienceOptions[it.name] || (g.id === 't-shirts' ? DEFAULT_AUDIENCES : null),
   })),
-}));
+})).filter((g) => !hiddenGroups.includes(g.id));
 
 export const printProducts = printGroups.flatMap((g) => g.items);

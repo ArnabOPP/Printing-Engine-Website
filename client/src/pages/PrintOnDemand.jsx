@@ -139,7 +139,7 @@ export default function PrintOnDemand() {
             <span className="pill"><i /> PRINT ON DEMAND</span>
             <h1>What do you want to<br /><span>customise?</span></h1>
             <p className="pod-make">Make your own <RotatingWord /></p>
-            <p className="pod-sub">Choose a product to start. {total} products across T-shirts, gifts, cards, stickers and business printing.</p>
+            <p className="pod-sub">Choose a product to start. {total} products across T-shirts and printing services.</p>
             <ol className="pod-steps" aria-label="How it works">
               {steps.map(([I, label], n) => (
                 <li key={label} className={n === 0 ? 'on' : ''}>
