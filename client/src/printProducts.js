@@ -186,10 +186,11 @@ export const sheetCost = (sp, sheet) => Math.round(((sheet.w * sheet.h) / A4_MM2
 const DEFAULT_AUDIENCES = ['men', 'unisex', 'kids'];
 const audienceOptions = {};
 
-// Categories kept out of the Print on Demand page for now. Remove an id from this list to show it again.
-const hiddenGroups = ['customised-products', 'cards-identification', 'stickers-labels', 'business-printing'];
+// Categories kept out of the Print on Demand page by default. The admin panel can change this (see applyCatalog).
+const DEFAULT_HIDDEN_GROUPS = ['customised-products', 'cards-identification', 'stickers-labels', 'business-printing'];
 
-export const printGroups = groups.map((g, gi) => ({
+// Every category and product, shown or not. The admin panel lists these.
+export const allGroups = groups.map((g, gi) => ({
   ...g,
   number: String(gi + 1).padStart(2, '0'),
   items: g.items.map((it) => ({
@@ -204,6 +205,38 @@ export const printGroups = groups.map((g, gi) => ({
     customSheet: customSheetProducts.includes(it.name),
     audiences: audienceOptions[it.name] || (g.id === 't-shirts' ? DEFAULT_AUDIENCES : null),
   })),
-})).filter((g) => !hiddenGroups.includes(g.id));
+}));
 
-export const printProducts = printGroups.flatMap((g) => g.items);
+// What the shop shows. These lists are updated in place, so every page sees the change.
+export const printGroups = [];
+export const printProducts = [];
+
+function show(hiddenGroups, hiddenProducts) {
+  printGroups.length = 0;
+  allGroups.forEach((g) => {
+    if (hiddenGroups.includes(g.id)) return;
+    const items = g.items.filter((it) => !hiddenProducts.includes(it.name));
+    if (items.length) printGroups.push({ ...g, items });
+  });
+  printProducts.length = 0;
+  printProducts.push(...printGroups.flatMap((g) => g.items));
+}
+show(DEFAULT_HIDDEN_GROUPS, []);
+
+export const defaultHiddenGroups = DEFAULT_HIDDEN_GROUPS;
+
+// The shop owner can change prices and what is shown from the admin panel. The saved changes (the "catalogue")
+// are loaded when the website opens and laid over the defaults above. Price objects are shared between products,
+// so changing one here changes it everywhere it is used.
+export function applyCatalog(c = {}) {
+  if (c.dtf) Object.assign(dtf, c.dtf);
+  if (c.sublimation) Object.assign(sublimation, c.sublimation);
+  Object.entries(c.sheetPrices || {}).forEach(([name, p]) => { if (sheetPrices[name]) Object.assign(sheetPrices[name], p); });
+  Object.entries(c.bases || {}).forEach(([name, v]) => {
+    const p = prices[name];
+    if (!p) return;
+    if (typeof v === 'number') p.base = v;
+    else if (p.baseByMaterial) Object.assign(p.baseByMaterial, v);
+  });
+  show(c.hiddenGroups || DEFAULT_HIDDEN_GROUPS, c.hiddenProducts || []);
+}

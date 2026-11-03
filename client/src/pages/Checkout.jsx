@@ -4,6 +4,8 @@ import { ArrowLeft, Check, ChevronRight, Lock, Minus, PackageCheck, Plus, Shoppi
 import { useCart } from '../context/CartContext.jsx';
 import { rupees } from '../studio/pricing.js';
 import { readAccount, writeAccount } from '../account.js';
+import { api } from '../api.js';
+import { useWishlist } from '../context/WishlistContext.jsx';
 
 const payments = [
   { id: 'cod', title: 'Cash on delivery', text: 'Pay in cash when your order arrives.' },
@@ -25,8 +27,6 @@ function validate(f) {
   return e;
 }
 
-const orderId = () => `PE-${Date.now().toString(36).toUpperCase().slice(-6)}${Math.random().toString(36).toUpperCase().slice(2, 4)}`;
-
 export default function Checkout() {
   const { items, setQty, remove, clear } = useCart();
   const [form, setForm] = useState(() => ({ ...EMPTY, ...readAccount() }));
@@ -34,6 +34,9 @@ export default function Checkout() {
   const [touched, setTouched] = useState({});
   const [pay, setPay] = useState('cod');
   const [placed, setPlaced] = useState(null);
+  const [sending, setSending] = useState(false);
+  const [failure, setFailure] = useState('');
+  const { items: wishlist } = useWishlist();
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [placed]);
 
@@ -47,30 +50,50 @@ export default function Checkout() {
   const blur = (key) => () => setTouched((t) => ({ ...t, [key]: true }));
   const err = (key) => touched[key] && errors[key];
 
-  const place = (e) => {
+  const place = async (e) => {
     e.preventDefault();
+    if (sending) return;
     if (Object.keys(errors).length) {
       setTouched(Object.fromEntries(Object.keys(EMPTY).map((k) => [k, true])));
       document.querySelector('.co-field.bad input, .co-field.bad textarea')?.focus();
       return;
     }
-    const order = {
-      id: orderId(),
-      placedAt: new Date().toISOString(),
-      customer: form,
-      payment: pay,
-      items,
-      subtotal,
-      unpriced,
-    };
-    // There is no server to send orders to yet, so the order is kept on this device.
+    setSending(true);
+    setFailure('');
+    // Custom designs travel with the order (their layers and uploaded pictures) so they can be printed.
+    const designs = {};
+    items.forEach((i) => {
+      if (!i.slug || designs[i.slug]) return;
+      try {
+        const d = JSON.parse(localStorage.getItem(`po-design-${i.slug}`) || 'null');
+        if (d) designs[i.slug] = d;
+      } catch { /* no saved design */ }
+    });
     try {
-      const all = JSON.parse(localStorage.getItem('orders') || '[]');
-      localStorage.setItem('orders', JSON.stringify([order, ...(Array.isArray(all) ? all : [])].slice(0, 50)));
-    } catch { /* ignore */ }
-    if (keep) { const { note, ...details } = form; writeAccount(details); }
-    clear();
-    setPlaced(order);
+      const sent = await api('/api/orders', {
+        method: 'POST',
+        body: {
+          customer: form,
+          payment: pay,
+          items: items.map(({ name, detail, img, qty, unit, slug, config }) => ({ name, detail, img, qty, unit, slug, config })),
+          designs,
+          wishlist: wishlist.map(({ name, href }) => ({ name, href })),
+        },
+      });
+      const order = { id: sent.id, placedAt: sent.placedAt, customer: form, payment: pay, items, subtotal: sent.subtotal, unpriced: sent.unpriced };
+      // A copy stays on this device so it shows under "My account".
+      try {
+        const all = JSON.parse(localStorage.getItem('orders') || '[]');
+        localStorage.setItem('orders', JSON.stringify([order, ...(Array.isArray(all) ? all : [])].slice(0, 50)));
+      } catch { /* ignore */ }
+      if (keep) { const { note, ...details } = form; writeAccount(details); }
+      clear();
+      setPlaced(order);
+    } catch (err) {
+      setFailure(err.message);
+    } finally {
+      setSending(false);
+    }
   };
 
   const field = (key, label, props = {}) => (
@@ -202,7 +225,8 @@ export default function Checkout() {
             <div className="total"><dt>Estimated total</dt><dd>{rupees(subtotal)}</dd></div>
           </dl>
 
-          <button type="submit" className="btn btn-lime-solid co-go">Place order</button>
+          <button type="submit" className="btn btn-lime-solid co-go" disabled={sending}>{sending ? 'Placing your order…' : 'Place order'}</button>
+          {failure && <p className="co-alert" role="alert">{failure}</p>}
           {Object.keys(errors).length > 0 && Object.keys(touched).length > 0 && <p className="co-alert" role="alert">Please fix the highlighted fields.</p>}
           <Link to="/print-on-demand" className="opt-back"><ArrowLeft size={14} /> Keep shopping</Link>
         </aside>

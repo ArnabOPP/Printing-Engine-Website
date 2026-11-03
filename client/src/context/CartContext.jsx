@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-// A cart line: { id, name, detail, img, qty, unit }
+// A cart line: { id, name, detail, img, qty, unit, slug, config }
+//   slug/config: set for custom designs (the product and the options chosen), so the order can include the artwork.
 //   unit: price of one piece in rupees, or null when the price is confirmed after the order (no estimate yet).
 const CartContext = createContext({ count: 0, items: [], add: () => {}, setQty: () => {}, remove: () => {}, clear: () => {} });
 
@@ -29,7 +30,7 @@ export function CartProvider({ children }) {
       const key = item.key || `${item.name}|${item.detail}|${item.unit}`;
       const hit = !item.unique && cur.find((i) => i.key === key);
       if (hit) return cur.map((i) => (i === hit ? { ...i, qty: i.qty + qty } : i));
-      return [...cur, { id: uid(), key, name: item.name, detail: item.detail || '', img: item.img || '', qty, unit: item.unit ?? null }];
+      return [...cur, { id: uid(), key, name: item.name, detail: item.detail || '', img: item.img || '', qty, unit: item.unit ?? null, slug: item.slug || '', config: item.config || null }];
     });
   }, []);
 

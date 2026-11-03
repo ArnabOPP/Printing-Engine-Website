@@ -587,6 +587,8 @@ function Studio({ product, cfg, slug }) {
       img: product.img || '',
       qty: cfg.quantity,
       unit: price ? price.perPiece : null,
+      slug,
+      config: cfg,
       unique: true, // every design is its own line
     });
     setAdded(true);

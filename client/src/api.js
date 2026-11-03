@@ -1,13 +1,41 @@
-// Small fetch wrapper for the Node API. In dev, Vite proxies /api to the server.
-export async function api(path, options = {}) {
-  const res = await fetch(`/api${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || res.statusText);
+// Talks to the shop's server. In development Vite forwards /api to it; when the website and the server are on
+// different addresses, set VITE_API_URL (for example https://api.example.com) when building the website.
+const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+
+export class ApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.status = status;
   }
-  return res.json();
+}
+
+export async function api(path, { method = 'GET', body, signal } = {}) {
+  let res;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      method,
+      credentials: 'include',
+      signal,
+      headers: {
+        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        // Changes made from the admin panel must carry this (the server checks it).
+        ...(method !== 'GET' ? { 'X-Admin-Request': '1' } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new ApiError('Could not reach the server. Check your connection and try again.', 0);
+  }
+  // A host with no server behind it answers with a web page instead of JSON.
+  if (res.ok && !(res.headers.get('content-type') || '').includes('json')) throw new ApiError('The shop server is not available right now. Please try again later.', 503);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(data.error || 'Something went wrong.', res.status);
+  return data;
+}
+
+// Downloads a protected file (customer artwork) and returns a temporary address the browser can show.
+export async function fileUrl(path) {
+  const res = await fetch(`${BASE}${path}`, { credentials: 'include' });
+  if (!res.ok) throw new ApiError('Could not load the file.', res.status);
+  return URL.createObjectURL(await res.blob());
 }

@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout.jsx';
 import Home from './pages/Home.jsx';
@@ -9,11 +10,15 @@ import Design from './pages/Design.jsx';
 import Checkout from './pages/Checkout.jsx';
 import Wishlist from './pages/Wishlist.jsx';
 import Account from './pages/Account.jsx';
+
+// The admin panel is loaded only when someone opens /admin, so it stays out of the shop's main download.
+const AdminApp = lazy(() => import('./admin/AdminApp.jsx'));
 import NotFound from './pages/NotFound.jsx';
 
 export default function App() {
   return (
     <Routes>
+      <Route path="admin/*" element={<Suspense fallback={null}><AdminApp /></Suspense>} />
       <Route element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="about" element={<About />} />

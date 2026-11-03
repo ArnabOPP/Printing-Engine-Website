@@ -4,3 +4,5 @@ dist
 *.log
 .DS_Store
 .claude
+server/data
+server/.env
