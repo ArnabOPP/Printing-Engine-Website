@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   Star, ZoomIn, ZoomOut, Minus, Plus, ShoppingBag, Zap, Check, Printer, Leaf, Banknote, RotateCcw, Ruler, ChevronRight,
 } from 'lucide-react';
@@ -63,6 +63,7 @@ export default function Product() {
   const { slug } = useParams();
   const product = products.find((p) => p.slug === slug);
   const { add } = useCart();
+  const navigate = useNavigate();
 
   const [color, setColor] = useState(0);
   const [size, setSize] = useState(null);
@@ -90,15 +91,16 @@ export default function Product() {
     setNote('Please choose a size first.');
     return true;
   };
+  const item = () => ({ name: product.name, detail: `${size} · Colour ${color + 1}`, img: product.img || '', qty, unit: product.price });
   const addToCart = () => {
     if (needSize()) return;
-    add(qty);
+    add(item());
     setNote(`Added ${qty} × ${product.name} (${size}) to your cart.`);
   };
   const buyNow = () => {
     if (needSize()) return;
-    add(qty);
-    setNote('Added to cart. Checkout is not connected yet.');
+    add(item());
+    navigate('/checkout');
   };
 
   return (

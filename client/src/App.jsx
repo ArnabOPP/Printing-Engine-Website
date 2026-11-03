@@ -6,6 +6,7 @@ import Product from './pages/Product.jsx';
 import PrintOnDemand from './pages/PrintOnDemand.jsx';
 import Customise from './pages/Customise.jsx';
 import Design from './pages/Design.jsx';
+import Checkout from './pages/Checkout.jsx';
 import NotFound from './pages/NotFound.jsx';
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="print-on-demand" element={<PrintOnDemand />} />
         <Route path="customise/:slug" element={<Customise />} />
         <Route path="design/:slug" element={<Design />} />
+        <Route path="checkout" element={<Checkout />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

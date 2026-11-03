@@ -575,7 +575,20 @@ function Studio({ product, cfg, slug }) {
   /* ----- order ----- */
   const addDesignToCart = () => {
     if (!totalLayers && !askEmpty) { setAskEmpty(true); return; }
-    addToCart(cfg.quantity);
+    const bits = [
+      cfg.methodLabel, cfg.material, cfg.colour, cfg.audience,
+      sheet && `${sheet.label} sheet`,
+      cfg.sizes && Object.keys(cfg.sizes).length ? Object.entries(cfg.sizes).map(([s, n]) => `${s} × ${n}`).join(', ') : null,
+      isTee && (full ? 'Full body print' : 'Normal print'),
+    ].filter(Boolean);
+    addToCart({
+      name: cfg.product,
+      detail: bits.join(' · '),
+      img: product.img || '',
+      qty: cfg.quantity,
+      unit: price ? price.perPiece : null,
+      unique: true, // every design is its own line
+    });
     setAdded(true);
     setAskEmpty(false);
   };
@@ -978,8 +991,9 @@ function Studio({ product, cfg, slug }) {
             {added ? (
               <div className="st-done" role="status">
                 <p><Check size={16} strokeWidth={3} /> Added {cfg.quantity} to your cart</p>
-                <small>Checkout isn’t connected yet. Your design is saved on this device.</small>
+                <small>Your design is saved on this device.</small>
                 <div className="st-done-links">
+                  <Link to="/checkout" className="st-checkout-link">Go to checkout</Link>
                   <button type="button" onClick={() => setAdded(false)}>Keep editing</button>
                   <Link to="/print-on-demand">Design another product</Link>
                 </div>

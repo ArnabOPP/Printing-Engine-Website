@@ -1,24 +1,46 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-const CartContext = createContext({ count: 0, add: () => {} });
+// A cart line: { id, name, detail, img, qty, unit }
+//   unit: price of one piece in rupees, or null when the price is confirmed after the order (no estimate yet).
+const CartContext = createContext({ count: 0, items: [], add: () => {}, setQty: () => {}, remove: () => {}, clear: () => {} });
 
-function readCount() {
+function readItems() {
   try {
-    return Number(localStorage.getItem('cart-count')) || 0;
+    const items = JSON.parse(localStorage.getItem('cart-items') || '[]');
+    return Array.isArray(items) ? items.filter((i) => i && i.id && i.qty > 0) : [];
   } catch {
-    return 0;
+    return [];
   }
 }
 
+const uid = () => Math.random().toString(36).slice(2, 9);
+
 export function CartProvider({ children }) {
-  const [count, setCount] = useState(readCount);
+  const [items, setItems] = useState(readItems);
 
   useEffect(() => {
-    try { localStorage.setItem('cart-count', String(count)); } catch { /* ignore */ }
-  }, [count]);
+    try { localStorage.setItem('cart-items', JSON.stringify(items)); } catch { /* ignore */ }
+  }, [items]);
 
-  const add = useCallback((qty = 1) => setCount((c) => c + qty), []);
-  const value = useMemo(() => ({ count, add }), [count, add]);
+  // Adding the same product with the same details again just raises its quantity.
+  const add = useCallback((item) => {
+    const qty = Math.max(1, Math.round(item.qty) || 1);
+    setItems((cur) => {
+      const key = item.key || `${item.name}|${item.detail}|${item.unit}`;
+      const hit = !item.unique && cur.find((i) => i.key === key);
+      if (hit) return cur.map((i) => (i === hit ? { ...i, qty: i.qty + qty } : i));
+      return [...cur, { id: uid(), key, name: item.name, detail: item.detail || '', img: item.img || '', qty, unit: item.unit ?? null }];
+    });
+  }, []);
+
+  const setQty = useCallback((id, qty) => setItems((cur) => cur.map((i) => (i.id === id ? { ...i, qty: Math.max(1, Math.round(qty) || 1) } : i))), []);
+  const remove = useCallback((id) => setItems((cur) => cur.filter((i) => i.id !== id)), []);
+  const clear = useCallback(() => setItems([]), []);
+
+  const value = useMemo(
+    () => ({ items, count: items.reduce((n, i) => n + i.qty, 0), add, setQty, remove, clear }),
+    [items, add, setQty, remove, clear],
+  );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

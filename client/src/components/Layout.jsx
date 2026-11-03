@@ -129,7 +129,7 @@ export default function Layout() {
             </button>
             <button className="icon-btn" aria-label="Account"><User size={20} /></button>
             <button className="icon-btn" aria-label="Wishlist"><Heart size={20} /></button>
-            <button className="icon-btn cart" aria-label="Cart"><ShoppingBag size={20} /><b>{count}</b></button>
+            <Link to="/checkout" className="icon-btn cart" aria-label={`Cart, ${count} items`}><ShoppingBag size={20} /><b>{count}</b></Link>
           </div>
         </div>
       </header>
