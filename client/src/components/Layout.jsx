@@ -3,7 +3,6 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Search, User, Heart, ShoppingBag, Moon, Sun, ChevronDown, ArrowRight, Mail, Phone } from 'lucide-react';
 import { siInstagram, siFacebook, siWhatsapp, siYoutube, siVisa, siMastercard } from 'simple-icons';
 import { useCart } from '../context/CartContext.jsx';
-import { printGroups } from '../printProducts.js';
 
 function getInitialTheme() {
   try {
@@ -35,7 +34,14 @@ const Social = ({ icon }) => (
   </a>
 );
 
-// The Shop menu: every category and product that can be ordered, straight to its options page.
+// The Shop menu: ready-made products sold with Printing Engine's own designs (not the Customise flow).
+// There are no shop pages yet, so every entry points at the categories on the home page.
+const shopColumns = [
+  { title: 'Fashion', items: ['Men', 'Women', 'Kids', 'Oversized T-Shirts', 'Polo T-Shirts'] },
+  { title: 'Drinkware & Gifts', items: ['Cups & Mugs', 'Bottles', 'Keychains', 'Photo Frames', 'Stickers & Labels'] },
+  { title: 'Accessories', items: ['Tote Bags', 'Caps', 'Notebooks', 'Pens'] },
+];
+
 function ShopMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -64,24 +70,18 @@ function ShopMenu() {
       </button>
       <div className="shop-panel" role="menu" aria-label="Shop">
         <div className="shop-cols">
-          {printGroups.map((g) => (
-            <div key={g.id} className="shop-col">
-              <h5>{g.name}</h5>
-              <p>{g.blurb}</p>
+          {shopColumns.map((c) => (
+            <div key={c.title} className="shop-col">
+              <h5>{c.title}</h5>
               <ul>
-                {g.items.map((it) => (
-                  <li key={it.slug}>
-                    <Link to={`/customise/${it.slug}`} role="menuitem">
-                      {it.img ? <img src={it.img} alt="" loading="lazy" /> : <i aria-hidden="true" />}
-                      <span>{it.name}{it.spec ? <small> {it.spec}</small> : null}</span>
-                    </Link>
-                  </li>
+                {c.items.map((name) => (
+                  <li key={name}><a href="/#categories" role="menuitem">{name}</a></li>
                 ))}
               </ul>
             </div>
           ))}
         </div>
-        <Link to="/print-on-demand" className="shop-all" role="menuitem">Shop all products <ArrowRight size={14} /></Link>
+        <a href="/#categories" className="shop-all" role="menuitem">Shop all products <ArrowRight size={14} /></a>
       </div>
     </div>
   );
