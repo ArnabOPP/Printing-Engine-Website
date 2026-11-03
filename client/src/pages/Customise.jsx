@@ -16,10 +16,6 @@ const audiences = [
   { id: 'kids', label: 'Kids', hint: 'Ages 2 to 13', icon: Baby, sizes: ['2-3 yrs', '4-5 yrs', '6-7 yrs', '8-9 yrs', '10-11 yrs', '12-13 yrs'] },
 ];
 
-// Smallest and largest custom sheet side, in inches.
-const CUSTOM_MIN = 1;
-const CUSTOM_MAX = 60;
-
 const quickQty = [1, 10, 25, 50, 100];
 
 function gsmNote(option) {
@@ -59,7 +55,6 @@ export default function Customise() {
   const [chartOpen, setChartOpen] = useState(false);
   const [method, setMethod] = useState(null);
   const [sheet, setSheet] = useState(null);
-  const [customIn, setCustomIn] = useState({ w: '12', h: '18' }); // custom sheet size, in inches
 
   const isApparel = product?.category === 'T-Shirts';
   // Print methods (for example DTF or sublimation). Only asked about when there is more than one.
@@ -69,12 +64,7 @@ export default function Customise() {
   const materials = product?.fabric?.options || [];
   const colours = product?.colors || [];
   const sheets = product?.sheets || [];
-  const cw = Number(customIn.w);
-  const ch = Number(customIn.h);
-  const customOk = cw >= CUSTOM_MIN && cw <= CUSTOM_MAX && ch >= CUSTOM_MIN && ch <= CUSTOM_MAX;
-  const sheetObj = sheet === 'custom'
-    ? { id: 'custom', label: 'Custom', w: Math.round(cw * 25.4), h: Math.round(ch * 25.4) }
-    : sheets.find((s) => s.id === sheet) || sheets[0] || null;
+  const sheetObj = sheets.find((s) => s.id === sheet) || sheets[0] || null;
   const aud = audiences.find((a) => a.id === audience);
   // Some products are only made for some groups (for example no Women's range); the rest get all four.
   const availableAudiences = product?.audiences ? audiences.filter((a) => product.audiences.includes(a.id)) : audiences;
@@ -112,7 +102,6 @@ export default function Customise() {
   if (materials.length && !material) missing.push('a material quality');
   if (colours.length && !colour) missing.push('a colour');
   if (isApparel && !audience) missing.push('who it is for');
-  if (sheet === 'custom' && !customOk) missing.push(`a custom size between ${CUSTOM_MIN} and ${CUSTOM_MAX} inches`);
   if (total < 1) missing.push(isApparel ? 'at least one size' : 'a quantity');
   const ready = missing.length === 0;
 
@@ -190,26 +179,7 @@ export default function Customise() {
                     {sh.id === sheetObj.id && <span className="opt-tick"><Check size={13} strokeWidth={3} /></span>}
                   </button>
                 ))}
-                <button role="radio" aria-checked={sheet === 'custom'} className={`opt-choice${sheet === 'custom' ? ' on' : ''}`} onClick={() => setSheet('custom')}>
-                  <strong>Custom size</strong>
-                  <small>Type your own width and height</small>
-                  {sheet === 'custom' && <span className="opt-tick"><Check size={13} strokeWidth={3} /></span>}
-                </button>
               </div>
-              {sheet === 'custom' && (
-                <div className="opt-custom">
-                  <label>Width (in)
-                    <input type="number" inputMode="decimal" min={CUSTOM_MIN} max={CUSTOM_MAX} step="0.5" value={customIn.w} onChange={(e) => setCustomIn((c) => ({ ...c, w: e.target.value }))} />
-                  </label>
-                  <span aria-hidden="true">×</span>
-                  <label>Height (in)
-                    <input type="number" inputMode="decimal" min={CUSTOM_MIN} max={CUSTOM_MAX} step="0.5" value={customIn.h} onChange={(e) => setCustomIn((c) => ({ ...c, h: e.target.value }))} />
-                  </label>
-                  <small className={customOk ? '' : 'bad'}>
-                    {customOk ? `${(cw * ch).toFixed(1)} sq in sheet` : `Enter sizes from ${CUSTOM_MIN} to ${CUSTOM_MAX} inches.`}
-                  </small>
-                </div>
-              )}
             </section>
           )}
 
