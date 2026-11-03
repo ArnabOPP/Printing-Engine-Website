@@ -535,6 +535,27 @@ function Studio({ product, cfg, slug }) {
     />
   );
 
+  const flipButtons = selected && (
+    <>
+      <button
+        type="button"
+        className={selected.flip ? 'on' : ''}
+        aria-pressed={!!selected.flip}
+        title="Flip horizontally"
+        aria-label="Flip horizontally"
+        onClick={() => patch(selected.id, (l) => ({ flip: !l.flip }))}
+      ><FlipHorizontal2 size={15} /></button>
+      <button
+        type="button"
+        className={selected.flipV ? 'on' : ''}
+        aria-pressed={!!selected.flipV}
+        title="Flip vertically"
+        aria-label="Flip vertically"
+        onClick={() => patch(selected.id, (l) => ({ flipV: !l.flipV }))}
+      ><FlipVertical2 size={15} /></button>
+    </>
+  );
+
   return (
     <div className="wrap st">
       <nav className="pd-crumbs" aria-label="Breadcrumb">
@@ -709,6 +730,7 @@ function Studio({ product, cfg, slug }) {
                   <button type="button" className={cropOpen ? 'on' : ''} aria-expanded={cropOpen} onClick={() => setCropOpen((o) => !o)}>
                     <Crop size={15} /> Crop
                   </button>
+                  {flipButtons}
                 </div>
 
                 {cropOpen && (
@@ -754,22 +776,7 @@ function Studio({ product, cfg, slug }) {
                 </label>
                 <div className="st-actions">
                   <button type="button" onClick={() => duplicate(selected)}><Copy size={15} /> Duplicate</button>
-                  <button
-                    type="button"
-                    className={selected.flip ? 'on' : ''}
-                    aria-pressed={!!selected.flip}
-                    title="Flip horizontally"
-                    aria-label="Flip horizontally"
-                    onClick={() => patch(selected.id, (l) => ({ flip: !l.flip }))}
-                  ><FlipHorizontal2 size={15} /></button>
-                  <button
-                    type="button"
-                    className={selected.flipV ? 'on' : ''}
-                    aria-pressed={!!selected.flipV}
-                    title="Flip vertically"
-                    aria-label="Flip vertically"
-                    onClick={() => patch(selected.id, (l) => ({ flipV: !l.flipV }))}
-                  ><FlipVertical2 size={15} /></button>
+                  {selected.type !== 'image' && flipButtons}
                   <button type="button" onClick={() => reorder(selected.id, 1)} aria-label="Bring forward"><ArrowUp size={15} /></button>
                   <button type="button" onClick={() => reorder(selected.id, -1)} aria-label="Send backward"><ArrowDown size={15} /></button>
                   <button type="button" className="danger" onClick={() => remove(selected.id)} aria-label="Delete"><Trash2 size={15} /></button>
