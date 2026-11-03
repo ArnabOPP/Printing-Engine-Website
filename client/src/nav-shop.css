@@ -1,0 +1,22 @@
+/* ===== Shop dropdown in the nav bar ===== */
+.shop-menu { position: relative; display: inline-flex; align-items: center; }
+.shop-btn { display: inline-flex; align-items: center; gap: 4px; padding: 0; font: inherit; color: inherit; opacity: 0.85; cursor: pointer; background: none; border: 0; }
+.shop-menu:hover .shop-btn, .shop-menu.open .shop-btn { opacity: 1; }
+.shop-btn svg { transition: transform 0.2s; }
+.shop-menu.open .shop-btn svg { transform: rotate(180deg); }
+
+/* invisible padding on top keeps the menu open while the pointer travels from the button to the panel */
+.shop-panel { position: absolute; top: 100%; left: -16px; z-index: 60; padding-top: 22px; display: none; }
+.shop-menu.open .shop-panel { display: block; }
+.shop-panel > * { position: relative; }
+.shop-panel::before { content: ''; position: absolute; inset: 22px 0 0 0; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35); }
+.shop-cols { display: flex; gap: 8px; padding: 18px 18px 8px; }
+.shop-col { width: 250px; padding: 0 6px; }
+.shop-col h5 { margin: 0; font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 800; letter-spacing: 0.02em; }
+.shop-col p { margin: 2px 0 10px; font-size: 11px; font-weight: 500; line-height: 1.35; color: var(--muted); white-space: normal; }
+.shop-col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.shop-col a { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; font-size: 12.5px; font-weight: 600; opacity: 1; }
+.shop-col a:hover, .shop-col a:focus-visible { background: color-mix(in srgb, var(--lime) 16%, transparent); }
+.shop-col img, .shop-col i { flex: none; width: 34px; height: 34px; border-radius: 8px; object-fit: cover; background: var(--bg); border: 1px solid var(--border); }
+.shop-col small { color: var(--muted); font-weight: 500; }
+.shop-all { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 18px 16px; padding: 10px 14px; border-radius: 10px; background: var(--lime); color: #0d0d0f; font-size: 12.5px; font-weight: 800; opacity: 1; }

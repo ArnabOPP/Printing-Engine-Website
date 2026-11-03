@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Search, User, Heart, ShoppingBag, Moon, Sun, ChevronDown, ArrowRight, Mail, Phone } from 'lucide-react';
 import { siInstagram, siFacebook, siWhatsapp, siYoutube, siVisa, siMastercard } from 'simple-icons';
 import { useCart } from '../context/CartContext.jsx';
+import { printGroups } from '../printProducts.js';
 
 function getInitialTheme() {
   try {
@@ -34,6 +35,58 @@ const Social = ({ icon }) => (
   </a>
 );
 
+// The Shop menu: every category and product that can be ordered, straight to its options page.
+function ShopMenu() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const { pathname } = useLocation();
+
+  useEffect(() => { setOpen(false); }, [pathname]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('pointerdown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [open]);
+
+  return (
+    <div
+      className={`shop-menu${open ? ' open' : ''}`}
+      ref={ref}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button type="button" className="shop-btn" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        Shop <ChevronDown size={12} />
+      </button>
+      <div className="shop-panel" role="menu" aria-label="Shop">
+        <div className="shop-cols">
+          {printGroups.map((g) => (
+            <div key={g.id} className="shop-col">
+              <h5>{g.name}</h5>
+              <p>{g.blurb}</p>
+              <ul>
+                {g.items.map((it) => (
+                  <li key={it.slug}>
+                    <Link to={`/customise/${it.slug}`} role="menuitem">
+                      {it.img ? <img src={it.img} alt="" loading="lazy" /> : <i aria-hidden="true" />}
+                      <span>{it.name}{it.spec ? <small> {it.spec}</small> : null}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <Link to="/print-on-demand" className="shop-all" role="menuitem">Shop all products <ArrowRight size={14} /></Link>
+      </div>
+    </div>
+  );
+}
+
 export default function Layout() {
   const [theme, setTheme] = useState(getInitialTheme);
   const { count } = useCart();
@@ -60,7 +113,7 @@ export default function Layout() {
         <div className="wrap nav-in">
           <Logo />
           <nav className="nav-links" aria-label="Primary">
-            <a href="/#categories">Shop <ChevronDown size={12} /></a>
+            <ShopMenu />
             <Link to="/print-on-demand">Customise</Link>
             <a href="/#originals">VA Originals</a>
             <a href="/#bulk">Bulk Orders</a>
