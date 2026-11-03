@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
 import {
-  AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, Bold, Check, ChevronRight, Copy, FlipHorizontal2, Image as ImageIcon,
+  AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, Bold, Check, ChevronRight, Copy, Crop, FlipHorizontal2, Image as ImageIcon,
   Info, Italic, Redo2, RotateCcw, Shapes, ShoppingBag, Trash2, Type, Undo2, Upload, CaseUpper,
 } from 'lucide-react';
 import { printProducts } from '../printProducts.js';
@@ -302,6 +302,7 @@ function Studio({ product, cfg, slug }) {
   const [side, setSide] = useState('front');
   const [selectedId, setSelectedId] = useState(null);
   const [shapesOpen, setShapesOpen] = useState(false);
+  const [cropOpen, setCropOpen] = useState(false); // the crop sliders only show after you choose Crop
   const [guide, setGuide] = useState(true);
   const [notice, setNotice] = useState('');
   const [saveNote, setSaveNote] = useState('');
@@ -400,6 +401,11 @@ function Studio({ product, cfg, slug }) {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, []);
+
+  // Choosing another item (or nothing) closes the crop sliders.
+  useEffect(() => {
+    setCropOpen(false);
+  }, [selectedId]);
 
   useEffect(() => {
     if (!notice) return undefined;
@@ -686,8 +692,12 @@ function Studio({ product, cfg, slug }) {
                       w: Math.max(Math.min(free ? 70 : 85, 92 / (croppedRatio(l) * (area.width / area.height) * aspect)), 8), x: 50, y: 50, rot: 0,
                     }))}
                   ><RotateCcw size={15} /> Fit to area</button>
+                  <button type="button" className={cropOpen ? 'on' : ''} aria-expanded={cropOpen} onClick={() => setCropOpen((o) => !o)}>
+                    <Crop size={15} /> Crop
+                  </button>
                 </div>
 
+                {cropOpen && (
                 <div className="st-crop-box">
                   <span className="st-lbl">Crop</span>
                   {[['l', 'Left'], ['r', 'Right'], ['t', 'Top'], ['b', 'Bottom']].map(([side, label]) => {
@@ -716,6 +726,7 @@ function Studio({ product, cfg, slug }) {
                     onClick={() => patch(selected.id, (l) => applyCrop(l, ZERO_CROP, (area.height / area.width) / aspect))}
                   ><RotateCcw size={14} /> Reset crop</button>
                 </div>
+                )}
               </div>
             )}
 
