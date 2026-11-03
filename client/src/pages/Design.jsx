@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
 import {
-  AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, Bold, Check, ChevronRight, Copy, Crop, FlipHorizontal2, Image as ImageIcon,
+  AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, Bold, Check, ChevronRight, Copy, Crop, FlipHorizontal2, FlipVertical2, Image as ImageIcon,
   Info, Italic, Redo2, RotateCcw, Shapes, ShoppingBag, Trash2, Type, Undo2, Upload, CaseUpper,
 } from 'lucide-react';
 import { printProducts } from '../printProducts.js';
@@ -107,11 +107,20 @@ const capture = (el, id) => {
 const ZERO_CROP = { l: 0, t: 0, r: 0, b: 0 };
 const cropOf = (layer) => layer.crop || ZERO_CROP;
 
-// The crop as seen on screen. A flipped layer shows its picture mirrored, so left and right swap.
+// The crop as seen on screen. A flipped layer shows its picture mirrored, so left and right swap
+// (and top and bottom when it is flipped vertically).
 const viewCrop = (layer) => {
   const c = cropOf(layer);
-  return layer.flip ? { l: c.r, t: c.t, r: c.l, b: c.b } : c;
+  return {
+    l: layer.flip ? c.r : c.l,
+    r: layer.flip ? c.l : c.r,
+    t: layer.flipV ? c.b : c.t,
+    b: layer.flipV ? c.t : c.b,
+  };
 };
+
+// CSS for a layer's flips: `flip` mirrors left to right, `flipV` mirrors top to bottom.
+const flipCss = (layer) => [layer.flip && 'scaleX(-1)', layer.flipV && 'scaleY(-1)'].filter(Boolean).join(' ') || undefined;
 
 // Height / width of the part of an image that stays visible.
 const croppedRatio = (layer) => {
@@ -134,7 +143,12 @@ function applyCrop(layer, view, hw) {
   const cx = layer.x - ox0; // centre of the whole picture
   const cy = layer.y * hw - oy0;
   const [ox, oy] = rotate2(((view.l - view.r) / 2) * fullW, ((view.t - view.b) / 2) * fullH, layer.rot);
-  const source = layer.flip ? { l: view.r, t: view.t, r: view.l, b: view.b } : view;
+  const source = {
+    l: layer.flip ? view.r : view.l,
+    r: layer.flip ? view.l : view.r,
+    t: layer.flipV ? view.b : view.t,
+    b: layer.flipV ? view.t : view.b,
+  };
   return { crop: source, w: fullW * (1 - view.l - view.r), x: cx + ox, y: (cy + oy) / hw };
 }
 
@@ -161,7 +175,7 @@ function LayerContent({ layer, measure }) {
         style={{
           fontFamily: t.font, fontSize: `${t.size}cqw`, color: t.color, fontWeight: t.bold ? 800 : 500,
           fontStyle: t.italic ? 'italic' : 'normal', textTransform: t.upper ? 'uppercase' : 'none',
-          transform: layer.flip ? 'scaleX(-1)' : undefined,
+          transform: flipCss(layer),
         }}
       >
         {t.value || ' '}
@@ -173,7 +187,7 @@ function LayerContent({ layer, measure }) {
     const fx = 1 - c.l - c.r;
     const fy = 1 - c.t - c.b;
     return (
-      <div {...m} className="st-fill st-crop" style={{ transform: layer.flip ? 'scaleX(-1)' : undefined }}>
+      <div {...m} className="st-fill st-crop" style={{ transform: flipCss(layer) }}>
         <img
           src={layer.image.src}
           alt={layer.image.name}
@@ -184,7 +198,7 @@ function LayerContent({ layer, measure }) {
     );
   }
   return (
-    <div {...m} className="st-fill" style={{ transform: layer.flip ? 'scaleX(-1)' : undefined }}>
+    <div {...m} className="st-fill" style={{ transform: flipCss(layer) }}>
       <ShapeSvg kind={layer.shape.kind} fill={layer.shape.fill} />
     </div>
   );
@@ -748,6 +762,14 @@ function Studio({ product, cfg, slug }) {
                     aria-label="Flip horizontally"
                     onClick={() => patch(selected.id, (l) => ({ flip: !l.flip }))}
                   ><FlipHorizontal2 size={15} /></button>
+                  <button
+                    type="button"
+                    className={selected.flipV ? 'on' : ''}
+                    aria-pressed={!!selected.flipV}
+                    title="Flip vertically"
+                    aria-label="Flip vertically"
+                    onClick={() => patch(selected.id, (l) => ({ flipV: !l.flipV }))}
+                  ><FlipVertical2 size={15} /></button>
                   <button type="button" onClick={() => reorder(selected.id, 1)} aria-label="Bring forward"><ArrowUp size={15} /></button>
                   <button type="button" onClick={() => reorder(selected.id, -1)} aria-label="Send backward"><ArrowDown size={15} /></button>
                   <button type="button" className="danger" onClick={() => remove(selected.id)} aria-label="Delete"><Trash2 size={15} /></button>
