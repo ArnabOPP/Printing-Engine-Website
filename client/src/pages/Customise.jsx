@@ -54,6 +54,7 @@ export default function Customise() {
   const [view, setView] = useState('front');
   const [chartOpen, setChartOpen] = useState(false);
   const [method, setMethod] = useState(null);
+  const [sheet, setSheet] = useState(null);
 
   const isApparel = product?.category === 'T-Shirts';
   // Print methods (for example DTF or sublimation). Only asked about when there is more than one.
@@ -62,6 +63,8 @@ export default function Customise() {
   const activeMethod = methodIds.includes(method) ? method : methodIds[0];
   const materials = product?.fabric?.options || [];
   const colours = product?.colors || [];
+  const sheets = product?.sheets || [];
+  const sheetObj = sheets.find((s) => s.id === sheet) || sheets[0] || null;
   const aud = audiences.find((a) => a.id === audience);
   // Some products are only made for some groups (for example no Women's range); the rest get all four.
   const availableAudiences = product?.audiences ? audiences.filter((a) => product.audiences.includes(a.id)) : audiences;
@@ -72,6 +75,7 @@ export default function Customise() {
     setMaterial(product?.fabric?.options?.[0] ?? null);
     setColour(product?.colors?.[0]?.name ?? null);
     setMethod(product?.pricing ? Object.keys(product.pricing.methods)[0] : null);
+    setSheet(product?.sheets?.[0]?.id ?? null);
     setAudience(null);
     setSizeQty({});
     setQty(1);
@@ -83,13 +87,14 @@ export default function Customise() {
 
   const steps = useMemo(() => {
     const s = [];
+    if (sheets.length) s.push('sheet');
     if (materials.length) s.push('material');
     if (colours.length) s.push('colour');
     if (hasMethodChoice) s.push('method');
     if (isApparel) s.push('audience', 'sizes');
     else s.push('quantity');
     return s;
-  }, [materials.length, colours.length, hasMethodChoice, isApparel]);
+  }, [sheets.length, materials.length, colours.length, hasMethodChoice, isApparel]);
 
   if (!product) return <NotFound />;
 
@@ -132,6 +137,7 @@ export default function Customise() {
       // A product with a single quality has nothing to choose, so its fixed material is carried through.
       material: materials.length === 0 ? (product.fabric?.material ?? null) : material,
       colour,
+      sheet: sheetObj,
       method: product.pricing ? activeMethod : null,
       methodLabel: hasMethodChoice ? product.pricing.methods[activeMethod].label : null,
       audience,
@@ -161,6 +167,21 @@ export default function Customise() {
         <div className="opt-main">
           <h1>Set up your {product.name}</h1>
           <p className="opt-lead">Pick the options below. You can change everything again before you order.</p>
+
+          {sheets.length > 0 && (
+            <section className="opt-card" aria-labelledby="o-sheet">
+              <StepHead n={stepNo('sheet')} title="Sheet type" hint="Your design is laid out on this sheet." done />
+              <div className="opt-grid" role="radiogroup" aria-label="Sheet type">
+                {sheets.map((sh) => (
+                  <button key={sh.id} role="radio" aria-checked={sh.id === sheetObj.id} className={`opt-choice${sh.id === sheetObj.id ? ' on' : ''}`} onClick={() => setSheet(sh.id)}>
+                    <strong>{sh.label} sheet</strong>
+                    <small>{sh.w} × {sh.h} mm · {(sh.w / 25.4).toFixed(2)} × {(sh.h / 25.4).toFixed(2)} in</small>
+                    {sh.id === sheetObj.id && <span className="opt-tick"><Check size={13} strokeWidth={3} /></span>}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
 
           {materials.length > 0 && (
             <section className="opt-card" aria-labelledby="o-material">
@@ -316,6 +337,7 @@ export default function Customise() {
           )}
           <h3>{label}</h3>
           <dl>
+            {sheetObj && (<><dt>Sheet</dt><dd>{sheetObj.label} ({sheetObj.w} × {sheetObj.h} mm)</dd></>)}
             {product.fabric && (
               <>
                 <dt>Material</dt>

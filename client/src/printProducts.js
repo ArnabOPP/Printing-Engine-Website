@@ -161,6 +161,14 @@ export const baseFor = (pricing, material) => {
 export const fromBase = (pricing) => (pricing.baseByMaterial ? Math.min(...Object.values(pricing.baseByMaterial)) : pricing.base);
 export const printFrom = (pricing) => Math.min(...Object.values(pricing.methods).map((m) => m.normalPerSqIn));
 
+// Sheet types for the printing services that print on a sheet. Sizes are in millimetres.
+const sheetOptions = {
+  'DTF Printing': [
+    { id: 'a4', label: 'A4', w: 210, h: 297 },
+    { id: 'a3', label: 'A3', w: 297, h: 420 },
+  ],
+};
+
 // Who a T-shirt is made for. Every T-shirt type comes in Men, Unisex and Kids (there is no Women's range).
 // Add a product here only if it differs from this default.
 const DEFAULT_AUDIENCES = ['men', 'unisex', 'kids'];
@@ -176,6 +184,7 @@ export const printGroups = groups.map((g, gi) => ({
     colors: (colourOptions[it.name] || []).map((name) => ({ name, hex: palette[name] })),
     fabric: fabrics[it.name] || null,
     pricing: prices[it.name] || null,
+    sheets: sheetOptions[it.name] || null,
     audiences: audienceOptions[it.name] || (g.id === 't-shirts' ? DEFAULT_AUDIENCES : null),
   })),
 }));

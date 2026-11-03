@@ -2,14 +2,14 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
 import {
   AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, Bold, Check, ChevronRight, Copy, Crop, FlipHorizontal2, FlipVertical2, Image as ImageIcon,
-  Info, Italic, Redo2, RotateCcw, Shapes, ShoppingBag, Trash2, Type, Undo2, Upload, CaseUpper,
+  Info, Italic, LayoutGrid, Redo2, RotateCcw, Shapes, ShoppingBag, Trash2, Type, Undo2, Upload, CaseUpper,
 } from 'lucide-react';
 import { printProducts } from '../printProducts.js';
 import TeePhoto from '../components/TeePhoto.jsx';
 import { useHistory } from '../studio/useHistory.js';
 import { ShapeSvg, shapeList } from '../studio/shapes.jsx';
 import { useCart } from '../context/CartContext.jsx';
-import { quote, rupees, fmtRate } from '../studio/pricing.js';
+import { quote, rupees, fmtRate, layerSize, PHOTO_WIDTH_IN } from '../studio/pricing.js';
 import { garmentFor } from '../studio/garments.js';
 
 /* ---------- configuration ---------- */
@@ -152,6 +152,27 @@ function applyCrop(layer, view, hw) {
   return { crop: source, w: fullW * (1 - view.l - view.r), x: cx + ox, y: (cy + oy) / hw };
 }
 
+// Repeat across the sheet: where the other copies of a layer go. The copies form a grid that passes through the
+// original, sized by the layer's bounding box (rotation included) plus a gap. Sizes are in % of the sheet width.
+const MAX_COPIES = 600;
+function repeatCopies(layer, hUnits, gap) {
+  const { w, h } = layerSize(layer);
+  const rad = (layer.rot * Math.PI) / 180;
+  const bw = w * Math.abs(Math.cos(rad)) + h * Math.abs(Math.sin(rad));
+  const bh = w * Math.abs(Math.sin(rad)) + h * Math.abs(Math.cos(rad));
+  const cw = Math.max(bw + gap, 1);
+  const ch = Math.max(bh + gap, 1);
+  const cx = layer.x;
+  const cy = (layer.y / 100) * hUnits;
+  const out = [];
+  for (let j = Math.floor((-bh / 2 - cy) / ch); j <= Math.ceil((hUnits + bh / 2 - cy) / ch); j += 1) {
+    for (let i = Math.floor((-bw / 2 - cx) / cw); i <= Math.ceil((100 + bw / 2 - cx) / cw); i += 1) {
+      if ((i || j) && out.length < MAX_COPIES) out.push({ key: `${i}:${j}`, x: cx + i * cw, y: ((cy + j * ch) / hUnits) * 100 });
+    }
+  }
+  return out;
+}
+
 function layerStyle(layer) {
   const style = {
     left: `${layer.x}%`,
@@ -258,10 +279,16 @@ function useDrag({ layer, areaRef, ref, onSelect, onBegin, onChange }) {
 }
 
 // The artwork itself. It lives inside the clipping box, so it is cut off at the print area.
-function Layer({ layer, areaRef, onSelect, onBegin, onChange }) {
+function Layer({ layer, areaRef, onSelect, onBegin, onChange, copies }) {
   const ref = useRef(null);
   const d = useDrag({ layer, areaRef, ref, onSelect, onBegin, onChange });
   return (
+    <>
+    {copies?.map((c) => (
+      <div key={c.key} className="st-layer st-copy" aria-hidden="true" style={layerStyle({ ...layer, x: c.x, y: c.y })}>
+        <LayerContent layer={layer} />
+      </div>
+    ))}
     <div
       ref={ref}
       data-id={layer.id}
@@ -274,6 +301,7 @@ function Layer({ layer, areaRef, onSelect, onBegin, onChange }) {
     >
       <LayerContent layer={layer} measure />
     </div>
+    </>
   );
 }
 
@@ -332,9 +360,14 @@ function Studio({ product, cfg, slug }) {
   const free = full && !isSleeve; // true when artwork may cover the whole shirt (front/back in full body print)
   const layers = design[side];
   const selected = layers.find((l) => l.id === selectedId) || null;
-  const aspect = isTee ? 1 : flatRatio(cfg.product);
+  const sheet = !isTee ? cfg.sheet || null : null; // a printing sheet (A3, A4) with a real size
+  const aspect = isTee ? 1 : sheet ? sheet.w / sheet.h : flatRatio(cfg.product);
   const area = areaFor(isTee, mode, side, garment.areas);
   const areaAspect = (area.width / area.height) * aspect; // width / height of the print area
+  const hUnits = 100 / areaAspect; // sheet height in sheet-width units
+  // Inches per "area-width unit": exact on a sheet, an estimate on a T-shirt (see studio/pricing.js).
+  const inPerUnit = sheet ? sheet.w / 25.4 / 100 : isTee ? ((area.width / 100) * PHOTO_WIDTH_IN) / 100 : null;
+  const copiesOf = (l) => (sheet && l.repeat ? repeatCopies(l, hUnits, ((l.gap ?? 0.1) / (inPerUnit * 100)) * 100) : null);
   const totalLayers = sides.reduce((n, s) => n + design[s].length, 0);
   // Price estimate (only for products that have prices set in printProducts.js).
   const priced = useMemo(
@@ -647,9 +680,9 @@ function Studio({ product, cfg, slug }) {
                   style={{ left: `${area.left}%`, top: `${area.top}%`, width: `${area.width}%`, height: `${area.height}%` }}
                 >
                   {guide && !free && <span className="st-guide"><em>Print area{isTee ? ` · ${sideLabels[side]}` : ''}</em></span>}
-                  <div className={`st-clip${free ? ' full' : ''}`} style={free ? { '--mask': `url("${garmentSrc}")` } : undefined}>
+                  <div className={`st-clip${free ? ' full' : ''}${sheet ? ' sheet' : ''}`} style={free ? { '--mask': `url("${garmentSrc}")` } : undefined}>
                     {layers.map((l) => (
-                      <Layer key={l.id} layer={l} areaRef={areaRef} onSelect={setSelectedId} onBegin={checkpoint} onChange={patch} />
+                      <Layer key={l.id} layer={l} areaRef={areaRef} onSelect={setSelectedId} onBegin={checkpoint} onChange={patch} copies={copiesOf(l)} />
                     ))}
                   </div>
                   <div className="st-chrome">
@@ -774,6 +807,33 @@ function Studio({ product, cfg, slug }) {
                 <label>Opacity · {Math.round(selected.opacity * 100)}%
                   {slider({ min: 10, max: 100, step: 1, value: Math.round(selected.opacity * 100), onChange: (e) => patch(selected.id, { opacity: Number(e.target.value) / 100 }, false) })}
                 </label>
+                {inPerUnit && (() => {
+                  const { w, h } = layerSize(selected);
+                  const wi = w * inPerUnit;
+                  const hi = h * inPerUnit;
+                  const copies = copiesOf(selected);
+                  return (
+                    <p className="st-dims" aria-label="Size of this item">
+                      <b>{wi.toFixed(2)} in × {hi.toFixed(2)} in</b> = {(wi * hi).toFixed(1)} sq in{!sheet && ' (estimate)'}
+                      {copies && <small>{copies.length + 1} copies on the sheet · {((copies.length + 1) * wi * hi).toFixed(1)} sq in in total</small>}
+                    </p>
+                  );
+                })()}
+                {sheet && (
+                  <div className="st-repeat">
+                    <button
+                      type="button"
+                      className={selected.repeat ? 'on' : ''}
+                      aria-pressed={!!selected.repeat}
+                      onClick={() => patch(selected.id, (l) => ({ repeat: !l.repeat }))}
+                    ><LayoutGrid size={15} /> Repeat across the {sheet.label} sheet</button>
+                    {selected.repeat && (
+                      <label>Gap · {(selected.gap ?? 0.1).toFixed(2)} in
+                        {slider({ min: 0, max: 100, step: 5, value: Math.round((selected.gap ?? 0.1) * 100), onChange: (e) => patch(selected.id, { gap: Number(e.target.value) / 100 }, false) })}
+                      </label>
+                    )}
+                  </div>
+                )}
                 <div className="st-actions">
                   <button type="button" onClick={() => duplicate(selected)}><Copy size={15} /> Duplicate</button>
                   {selected.type !== 'image' && flipButtons}
@@ -807,6 +867,7 @@ function Studio({ product, cfg, slug }) {
             <h3>Your order</h3>
             <dl>
               <dt>Product</dt><dd>{label}</dd>
+              {sheet && (<><dt>Sheet</dt><dd>{sheet.label} ({sheet.w} × {sheet.h} mm)</dd></>)}
               {cfg.material && (<><dt>Material</dt><dd>{cfg.material}</dd></>)}
               {cfg.colour && (<><dt>Colour</dt><dd>{cfg.colour}</dd></>)}
               {cfg.audience && (<><dt>For</dt><dd>{cfg.audience}</dd></>)}
