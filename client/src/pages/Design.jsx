@@ -100,6 +100,44 @@ const capture = (el, id) => {
   try { el.setPointerCapture(id); } catch { /* ignore */ }
 };
 
+/* ---------- crop helpers (images) ---------- */
+// An image layer can show only part of its picture. `crop` is the part cut off each side, as a fraction of the
+// picture (l, t, r, b). `w` is the width of the part that stays visible.
+
+const ZERO_CROP = { l: 0, t: 0, r: 0, b: 0 };
+const cropOf = (layer) => layer.crop || ZERO_CROP;
+
+// The crop as seen on screen. A flipped layer shows its picture mirrored, so left and right swap.
+const viewCrop = (layer) => {
+  const c = cropOf(layer);
+  return layer.flip ? { l: c.r, t: c.t, r: c.l, b: c.b } : c;
+};
+
+// Height / width of the part of an image that stays visible.
+const croppedRatio = (layer) => {
+  const c = cropOf(layer);
+  return (layer.image.ratio * (1 - c.t - c.b)) / (1 - c.l - c.r);
+};
+
+const rotate2 = (x, y, deg) => {
+  const r = (deg * Math.PI) / 180;
+  return [x * Math.cos(r) - y * Math.sin(r), x * Math.sin(r) + y * Math.cos(r)];
+};
+
+// New position, size and crop when the on-screen crop changes, so the part that stays visible does not move.
+// `hw` is the print area's height divided by its width (to turn y into the same units as x).
+function applyCrop(layer, view, hw) {
+  const old = viewCrop(layer);
+  const fullW = layer.w / (1 - old.l - old.r); // width of the whole picture
+  const fullH = fullW * layer.image.ratio;
+  const [ox0, oy0] = rotate2(((old.l - old.r) / 2) * fullW, ((old.t - old.b) / 2) * fullH, layer.rot);
+  const cx = layer.x - ox0; // centre of the whole picture
+  const cy = layer.y * hw - oy0;
+  const [ox, oy] = rotate2(((view.l - view.r) / 2) * fullW, ((view.t - view.b) / 2) * fullH, layer.rot);
+  const source = layer.flip ? { l: view.r, t: view.t, r: view.l, b: view.b } : view;
+  return { crop: source, w: fullW * (1 - view.l - view.r), x: cx + ox, y: (cy + oy) / hw };
+}
+
 function layerStyle(layer) {
   const style = {
     left: `${layer.x}%`,
@@ -107,7 +145,7 @@ function layerStyle(layer) {
     opacity: layer.opacity,
     transform: `translate(-50%, -50%) rotate(${layer.rot}deg)`,
   };
-  if (layer.type === 'image') { style.width = `${layer.w}%`; style.aspectRatio = `1 / ${layer.image.ratio}`; }
+  if (layer.type === 'image') { style.width = `${layer.w}%`; style.aspectRatio = `1 / ${croppedRatio(layer)}`; }
   if (layer.type === 'shape') { style.width = `${layer.w}%`; style.aspectRatio = '1 / 1'; }
   return style;
 }
@@ -123,6 +161,7 @@ function LayerContent({ layer, measure }) {
         style={{
           fontFamily: t.font, fontSize: `${t.size}cqw`, color: t.color, fontWeight: t.bold ? 800 : 500,
           fontStyle: t.italic ? 'italic' : 'normal', textTransform: t.upper ? 'uppercase' : 'none',
+          transform: layer.flip ? 'scaleX(-1)' : undefined,
         }}
       >
         {t.value || ' '}
@@ -130,13 +169,25 @@ function LayerContent({ layer, measure }) {
     );
   }
   if (layer.type === 'image') {
+    const c = cropOf(layer);
+    const fx = 1 - c.l - c.r;
+    const fy = 1 - c.t - c.b;
     return (
-      <div {...m} className="st-fill">
-        <img src={layer.image.src} alt={layer.image.name} draggable={false} style={{ transform: layer.flip ? 'scaleX(-1)' : undefined }} />
+      <div {...m} className="st-fill st-crop" style={{ transform: layer.flip ? 'scaleX(-1)' : undefined }}>
+        <img
+          src={layer.image.src}
+          alt={layer.image.name}
+          draggable={false}
+          style={{ width: `${100 / fx}%`, height: `${100 / fy}%`, left: `${(-c.l / fx) * 100}%`, top: `${(-c.t / fy) * 100}%` }}
+        />
       </div>
     );
   }
-  return <div {...m} className="st-fill"><ShapeSvg kind={layer.shape.kind} fill={layer.shape.fill} /></div>;
+  return (
+    <div {...m} className="st-fill" style={{ transform: layer.flip ? 'scaleX(-1)' : undefined }}>
+      <ShapeSvg kind={layer.shape.kind} fill={layer.shape.fill} />
+    </div>
+  );
 }
 
 // Shared pointer logic: move, resize (uniform) and rotate.
@@ -629,13 +680,41 @@ function Studio({ product, cfg, slug }) {
               <div className="st-fields">
                 <p className="st-file" title={selected.image.name}>{selected.image.name}</p>
                 <div className="st-toggles">
-                  <button type="button" onClick={() => patch(selected.id, (l) => ({ flip: !l.flip }))}><FlipHorizontal2 size={16} /> Flip</button>
                   <button
                     type="button"
                     onClick={() => patch(selected.id, (l) => ({
-                      w: Math.max(Math.min(free ? 70 : 85, 92 / (l.image.ratio * (area.width / area.height) * aspect)), 8), x: 50, y: 50, rot: 0,
+                      w: Math.max(Math.min(free ? 70 : 85, 92 / (croppedRatio(l) * (area.width / area.height) * aspect)), 8), x: 50, y: 50, rot: 0,
                     }))}
                   ><RotateCcw size={15} /> Fit to area</button>
+                </div>
+
+                <div className="st-crop-box">
+                  <span className="st-lbl">Crop</span>
+                  {[['l', 'Left'], ['r', 'Right'], ['t', 'Top'], ['b', 'Bottom']].map(([side, label]) => {
+                    const v = viewCrop(selected);
+                    return (
+                      <label key={side}>{label} · {Math.round(v[side] * 100)}%
+                        {slider({
+                          min: 0,
+                          max: 85,
+                          step: 1,
+                          value: Math.round(v[side] * 100),
+                          onChange: (e) => patch(selected.id, (l) => {
+                            const cur = viewCrop(l);
+                            const other = side === 'l' ? cur.r : side === 'r' ? cur.l : side === 't' ? cur.b : cur.t;
+                            const next = { ...cur, [side]: Math.min(Number(e.target.value) / 100, 0.9 - other) };
+                            return applyCrop(l, next, (area.height / area.width) / aspect);
+                          }, false),
+                        })}
+                      </label>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    className="st-crop-reset"
+                    disabled={!selected.crop || Object.values(selected.crop).every((n) => n === 0)}
+                    onClick={() => patch(selected.id, (l) => applyCrop(l, ZERO_CROP, (area.height / area.width) / aspect))}
+                  ><RotateCcw size={14} /> Reset crop</button>
                 </div>
               </div>
             )}
@@ -650,6 +729,14 @@ function Studio({ product, cfg, slug }) {
                 </label>
                 <div className="st-actions">
                   <button type="button" onClick={() => duplicate(selected)}><Copy size={15} /> Duplicate</button>
+                  <button
+                    type="button"
+                    className={selected.flip ? 'on' : ''}
+                    aria-pressed={!!selected.flip}
+                    title="Flip horizontally"
+                    aria-label="Flip horizontally"
+                    onClick={() => patch(selected.id, (l) => ({ flip: !l.flip }))}
+                  ><FlipHorizontal2 size={15} /></button>
                   <button type="button" onClick={() => reorder(selected.id, 1)} aria-label="Bring forward"><ArrowUp size={15} /></button>
                   <button type="button" onClick={() => reorder(selected.id, -1)} aria-label="Send backward"><ArrowDown size={15} /></button>
                   <button type="button" className="danger" onClick={() => remove(selected.id)} aria-label="Delete"><Trash2 size={15} /></button>

@@ -19,7 +19,11 @@ const textContext = () => {
 
 // Size of a layer in "area-width units" (% of the print area's width), before rotation.
 function layerSize(layer) {
-  if (layer.type === 'image') return { w: layer.w, h: layer.w * layer.image.ratio };
+  if (layer.type === 'image') {
+    // only the part left after cropping is printed
+    const c = layer.crop || { l: 0, t: 0, r: 0, b: 0 };
+    return { w: layer.w, h: (layer.w * layer.image.ratio * (1 - c.t - c.b)) / (1 - c.l - c.r) };
+  }
   if (layer.type === 'shape') return { w: layer.w, h: layer.w };
   const t = layer.text;
   const c = textContext();

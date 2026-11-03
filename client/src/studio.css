@@ -128,3 +128,12 @@
   .st-mode { grid-template-columns: 1fr; gap: 8px; }
   .st-mode button { padding: 10px 12px; }
 }
+
+/* Cropped images: the picture is positioned inside a clipping box; flipped layers mirror the whole box */
+.st-crop { position: relative; overflow: hidden; }
+.st-crop img { position: absolute; max-width: none; object-fit: fill; }
+.st-actions button.on { background: var(--lime); border-color: var(--lime); color: #0d0d0f; }
+.st-crop-box { display: grid; gap: 10px; padding-top: 12px; border-top: 1px dashed var(--border); }
+.st-crop-reset { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); font-size: 13px; font-weight: 600; }
+.st-crop-reset:disabled { opacity: 0.4; cursor: default; }
+.st-crop-reset:not(:disabled):hover { border-color: var(--text); }
