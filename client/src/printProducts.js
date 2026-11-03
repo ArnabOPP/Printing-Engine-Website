@@ -166,7 +166,7 @@ const A_SHEETS = [
   { id: 'a4', label: 'A4', w: 210, h: 297 },
   { id: 'a3', label: 'A3', w: 297, h: 420 },
 ];
-const sheetOptions = { 'DTF Printing': A_SHEETS, 'Sublimation Printing': A_SHEETS };
+const sheetOptions = { 'DTF Printing': A_SHEETS, 'Sublimation Printing': A_SHEETS, 'UV DTF Printing': A_SHEETS };
 // Sheet products that also let you type your own size.
 const customSheetProducts = ['Sublimation Printing'];
 
