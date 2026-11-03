@@ -155,6 +155,7 @@ function applyCrop(layer, view, hw) {
 // Repeat across the sheet: where the other copies of a layer go. The copies form a grid that passes through the
 // original, sized by the layer's bounding box (rotation included) plus a gap. Sizes are in % of the sheet width.
 const MAX_COPIES = 600;
+const EDGE = 0.05; // rounding allowance, in % of the sheet width
 function repeatCopies(layer, hUnits, gap) {
   const { w, h } = layerSize(layer);
   const rad = (layer.rot * Math.PI) / 180;
@@ -167,10 +168,28 @@ function repeatCopies(layer, hUnits, gap) {
   const out = [];
   for (let j = Math.floor((-bh / 2 - cy) / ch); j <= Math.ceil((hUnits + bh / 2 - cy) / ch); j += 1) {
     for (let i = Math.floor((-bw / 2 - cx) / cw); i <= Math.ceil((100 + bw / 2 - cx) / cw); i += 1) {
-      if ((i || j) && out.length < MAX_COPIES) out.push({ key: `${i}:${j}`, x: cx + i * cw, y: ((cy + j * ch) / hUnits) * 100 });
+      const x = cx + i * cw;
+      const y = cy + j * ch;
+      // a copy only counts when it lies completely inside the sheet
+      const inside = x - bw / 2 >= -EDGE && x + bw / 2 <= 100 + EDGE && y - bh / 2 >= -EDGE && y + bh / 2 <= hUnits + EDGE;
+      if ((i || j) && inside && out.length < MAX_COPIES) out.push({ key: `${i}:${j}`, x, y: (y / hUnits) * 100, d: Math.hypot(i * cw, j * ch) });
     }
   }
-  return out;
+  return out.sort((a, b) => a.d - b.d); // nearest the original first
+}
+
+// Where the original goes when Repeat is switched on: the first cell of a grid, centred on the sheet,
+// so that as many copies as possible fit inside it.
+function repeatStart(layer, hUnits, gap) {
+  const { w, h } = layerSize(layer);
+  const rad = (layer.rot * Math.PI) / 180;
+  const bw = w * Math.abs(Math.cos(rad)) + h * Math.abs(Math.sin(rad));
+  const bh = w * Math.abs(Math.sin(rad)) + h * Math.abs(Math.cos(rad));
+  const cols = Math.max(1, Math.floor((100 + gap + EDGE) / (bw + gap)));
+  const rows = Math.max(1, Math.floor((hUnits + gap + EDGE) / (bh + gap)));
+  const left = (100 - (cols * (bw + gap) - gap)) / 2;
+  const top = (hUnits - (rows * (bh + gap) - gap)) / 2;
+  return { x: left + bw / 2, y: ((top + bh / 2) / hUnits) * 100 };
 }
 
 function layerStyle(layer) {
@@ -367,7 +386,13 @@ function Studio({ product, cfg, slug }) {
   const hUnits = 100 / areaAspect; // sheet height in sheet-width units
   // Inches per "area-width unit": exact on a sheet, an estimate on a T-shirt (see studio/pricing.js).
   const inPerUnit = sheet ? sheet.w / 25.4 / 100 : isTee ? ((area.width / 100) * PHOTO_WIDTH_IN) / 100 : null;
-  const copiesOf = (l) => (sheet && l.repeat ? repeatCopies(l, hUnits, ((l.gap ?? 0.1) / (inPerUnit * 100)) * 100) : null);
+  const gapUnits = (l) => (l.gap ?? 0.1) / inPerUnit; // gap between copies, in sheet-width units
+  const copiesOf = (l) => (sheet && l.repeat ? repeatCopies(l, hUnits, gapUnits(l)) : null);
+  // The copies that are drawn: all that fit, or only as many as asked for (the original counts as one).
+  const shownCopies = (l) => {
+    const all = copiesOf(l);
+    return all && l.count ? all.slice(0, Math.max(0, l.count - 1)) : all;
+  };
   const totalLayers = sides.reduce((n, s) => n + design[s].length, 0);
   // Price estimate (only for products that have prices set in printProducts.js).
   const priced = useMemo(
@@ -682,7 +707,7 @@ function Studio({ product, cfg, slug }) {
                   {guide && !free && <span className="st-guide"><em>Print area{isTee ? ` · ${sideLabels[side]}` : ''}</em></span>}
                   <div className={`st-clip${free ? ' full' : ''}${sheet ? ' sheet' : ''}`} style={free ? { '--mask': `url("${garmentSrc}")` } : undefined}>
                     {layers.map((l) => (
-                      <Layer key={l.id} layer={l} areaRef={areaRef} onSelect={setSelectedId} onBegin={checkpoint} onChange={patch} copies={copiesOf(l)} />
+                      <Layer key={l.id} layer={l} areaRef={areaRef} onSelect={setSelectedId} onBegin={checkpoint} onChange={patch} copies={shownCopies(l)} />
                     ))}
                   </div>
                   <div className="st-chrome">
@@ -811,11 +836,11 @@ function Studio({ product, cfg, slug }) {
                   const { w, h } = layerSize(selected);
                   const wi = w * inPerUnit;
                   const hi = h * inPerUnit;
-                  const copies = copiesOf(selected);
+                  const copies = shownCopies(selected);
                   return (
                     <p className="st-dims" aria-label="Size of this item">
                       <b>{wi.toFixed(2)} in × {hi.toFixed(2)} in</b> = {(wi * hi).toFixed(1)} sq in{!sheet && ' (estimate)'}
-                      {copies && <small>{copies.length + 1} copies on the sheet · {((copies.length + 1) * wi * hi).toFixed(1)} sq in in total</small>}
+                      {copies && <small>{copies.length + 1} {copies.length ? 'copies' : 'copy'} on the sheet ·{((copies.length + 1) * wi * hi).toFixed(1)} sq in in total</small>}
                     </p>
                   );
                 })()}
@@ -825,8 +850,30 @@ function Studio({ product, cfg, slug }) {
                       type="button"
                       className={selected.repeat ? 'on' : ''}
                       aria-pressed={!!selected.repeat}
-                      onClick={() => patch(selected.id, (l) => ({ repeat: !l.repeat }))}
+                      onClick={() => patch(selected.id, (l) => (l.repeat ? { repeat: false } : { repeat: true, ...repeatStart(l, hUnits, gapUnits(l)) }))}
                     ><LayoutGrid size={15} /> Repeat across the {sheet.label} sheet</button>
+                    {selected.repeat && (() => {
+                      const fit = (copiesOf(selected)?.length || 0) + 1; // most copies that fit inside the sheet
+                      const want = Math.min(selected.count || fit, fit);
+                      return (
+                        <div className="st-count">
+                          <div className="st-toggles" role="radiogroup" aria-label="How many copies">
+                            <button type="button" role="radio" aria-checked={!selected.count} className={!selected.count ? 'on' : ''} onClick={() => patch(selected.id, { count: 0 })}>Fill the sheet</button>
+                            <button type="button" role="radio" aria-checked={!!selected.count} className={selected.count ? 'on' : ''} onClick={() => patch(selected.id, { count: want })}>Choose a number</button>
+                          </div>
+                          {selected.count > 0 && (
+                            <label>Number of copies (up to {fit})
+                              <input
+                                type="number" min={1} max={fit} step={1} value={want}
+                                onFocus={checkpoint}
+                                onChange={(e) => patch(selected.id, { count: clamp(Math.round(Number(e.target.value)) || 1, 1, fit) }, false)}
+                              />
+                            </label>
+                          )}
+                          <p className="st-count-note" role="status"><b>{want}</b> {want === 1 ? 'copy' : 'copies'} on the sheet{selected.count ? ` · ${fit} fit in all` : ''}. Copies always stay inside the sheet.</p>
+                        </div>
+                      );
+                    })()}
                     {selected.repeat && (
                       <label>Gap · {(selected.gap ?? 0.1).toFixed(2)} in
                         {slider({ min: 0, max: 100, step: 5, value: Math.round((selected.gap ?? 0.1) * 100), onChange: (e) => patch(selected.id, { gap: Number(e.target.value) / 100 }, false) })}
