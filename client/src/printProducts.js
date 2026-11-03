@@ -23,7 +23,7 @@ const groups = [
     items: [
       { name: 'DTF Printing', icon: 'Printer', img: '/dtf-printing.jpg' },
       { name: 'Sublimation Printing', icon: 'Droplets', img: '/sublimation-printing.jpg' },
-      { name: 'UV DTF Printing', icon: 'Layers' },
+      { name: 'UV DTF Printing', icon: 'Layers', img: '/uv-dtf-printing.jpg' },
     ],
   },
   {
