@@ -10,6 +10,8 @@ import apiRouter from './routes/index.js';
 import adminRouter from './routes/admin.js';
 import { catalogRouter, contentRouter, couponRouter, ordersRouter } from './routes/public.js';
 import { PUBLIC_DIR } from './store.js';
+import { shippingRouter, trackRouter, webhookRouter } from './routes/track.js';
+import { pollActive } from './shipping.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -35,6 +37,9 @@ app.use('/uploads', express.static(PUBLIC_DIR, { maxAge: '7d', immutable: true, 
 app.use('/api/catalog', catalogRouter);
 app.use('/api/content', contentRouter);
 app.use('/api/coupons', couponRouter);
+app.use('/api/track', trackRouter);
+app.use('/api/shipping', shippingRouter);
+app.use('/api/webhooks', webhookRouter);
 app.use('/api/admin', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); }, adminRouter);
 app.use('/api', apiRouter);
 
@@ -59,3 +64,6 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));
+
+// Check parcels that are on their way every 30 minutes (covers any push Delhivery misses).
+setInterval(() => pollActive().catch((e) => console.error('Tracking poll failed:', e.message)), 30 * 60 * 1000).unref();

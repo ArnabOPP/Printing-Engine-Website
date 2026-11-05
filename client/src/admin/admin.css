@@ -196,3 +196,10 @@
   .ad-row { grid-template-columns: 1fr; }
   .ad-row-tools { display: flex; }
 }
+
+/* ===== shipping ===== */
+.ad-ship { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.ad-ship small { display: block; color: var(--a-muted); font-size: 11.5px; margin-bottom: 2px; }
+.ad-shipform { display: grid; gap: 12px; }
+.ad-toolsrow { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
+.ad-pickup { margin-top: 14px; }

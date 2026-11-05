@@ -16,6 +16,7 @@ import './nav-shop.css';
 import './checkout.css';
 import './wishlist-account.css';
 import './sections.css';
+import './track.css';
 
 // Load the shop's saved prices and visibility before showing anything, so the first page is already right.
 // If the server is slow or away, the built-in defaults are used.

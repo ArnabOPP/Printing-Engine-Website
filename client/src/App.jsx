@@ -10,6 +10,7 @@ import Design from './pages/Design.jsx';
 import Checkout from './pages/Checkout.jsx';
 import Wishlist from './pages/Wishlist.jsx';
 import Account from './pages/Account.jsx';
+import Track from './pages/Track.jsx';
 
 // The admin panel is loaded only when someone opens /admin, so it stays out of the shop's main download.
 const AdminApp = lazy(() => import('./admin/AdminApp.jsx'));
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="checkout" element={<Checkout />} />
         <Route path="wishlist" element={<Wishlist />} />
         <Route path="account" element={<Account />} />
+        <Route path="track" element={<Track />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

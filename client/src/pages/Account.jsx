@@ -110,7 +110,7 @@ export default function Account() {
               <li key={o.id}>
                 <div className="ac-order-top">
                   <b>{o.id}</b>
-                  <span className="ac-status">Placed · awaiting confirmation</span>
+                  <Link className="ac-status" to={`/track?order=${o.id}`}>Track order →</Link>
                   <small>{fmtDate(o.placedAt)}</small>
                 </div>
                 <ul className="ac-lines">

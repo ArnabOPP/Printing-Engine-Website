@@ -1,0 +1,55 @@
+/* ===== Track order ===== */
+.tk { padding-bottom: 72px; }
+.tk h1 { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: clamp(34px, 4vw, 48px); margin: 6px 0 8px; }
+.tk-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 14px; align-items: end; max-width: 760px; margin: 18px 0 6px; }
+.tk-form .btn { height: 46px; }
+.tk-error { text-align: left; margin: 8px 0; }
+.tk-saved { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
+.tk-saved small { color: var(--muted); }
+.ac-tag { padding: 5px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 12px; font-weight: 700; cursor: pointer; color: var(--text); }
+.ac-tag:hover { border-color: var(--lime); }
+.tk-result { display: grid; gap: 18px; margin-top: 22px; max-width: 900px; }
+.tk-top { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; align-items: flex-start; margin-bottom: 22px; }
+.tk-top h2 { margin: 2px 0; font-size: 24px; display: block; }
+.tk-top small { color: var(--muted); font-size: 12.5px; }
+.tk-headline { margin: 0; max-width: 340px; padding: 12px 16px; border-radius: 12px; background: color-mix(in srgb, var(--lime) 16%, transparent); font-weight: 700; font-size: 14px; }
+.tk-headline.bad { background: rgba(255, 93, 115, 0.15); color: #ff6b6b; }
+.tk-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.tk-steps li { position: relative; display: grid; justify-items: center; gap: 6px; text-align: center; font-size: 12px; color: var(--muted); }
+.tk-steps li::before { content: ''; position: absolute; top: 14px; left: -50%; width: 100%; height: 3px; background: var(--border); z-index: 0; }
+.tk-steps li:first-child::before { display: none; }
+.tk-steps li span { position: relative; z-index: 1; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); border: 2px solid var(--border); font-size: 12px; font-weight: 700; }
+.tk-steps li.done::before, .tk-steps li.now::before { background: var(--lime); }
+.tk-steps li.done span { background: var(--lime); border-color: var(--lime); color: #0d0d0f; }
+.tk-steps li.now span { border-color: var(--lime); box-shadow: 0 0 0 4px color-mix(in srgb, var(--lime) 25%, transparent); color: var(--text); }
+.tk-steps li b { color: var(--text); font-size: 12px; }
+.tk-steps li small { font-size: 10.5px; min-height: 12px; }
+.tk-eta { display: flex; align-items: center; gap: 8px; margin: 20px 0 0; font-size: 13.5px; }
+.tk-courier { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; margin-bottom: 14px; }
+.tk-courier small { display: block; color: var(--muted); font-size: 11.5px; margin-bottom: 2px; }
+.tk-courier b { font-size: 14px; display: inline-flex; align-items: center; gap: 4px; }
+.tk-awb button { color: var(--muted); cursor: pointer; display: grid; place-items: center; }
+.tk-ext { margin-bottom: 18px; }
+.tk-events { list-style: none; margin: 0; padding: 0; display: grid; }
+.tk-events li { position: relative; display: grid; grid-template-columns: 18px 1fr; gap: 12px; padding-bottom: 16px; }
+.tk-events li::before { content: ''; position: absolute; left: 4px; top: 12px; bottom: 0; width: 2px; background: var(--border); }
+.tk-events li:last-child::before { display: none; }
+.tk-events i { width: 10px; height: 10px; margin-top: 5px; border-radius: 50%; background: var(--border); position: relative; z-index: 1; }
+.tk-events li.first i { background: var(--lime); box-shadow: 0 0 0 4px color-mix(in srgb, var(--lime) 25%, transparent); }
+.tk-events b { display: block; font-size: 13.5px; }
+.tk-events small { display: block; color: var(--muted); font-size: 12px; }
+
+/* Delivery check under the PIN code at checkout */
+.co-pin { grid-column: 1 / -1; margin: -4px 0 0; font-size: 12.5px; font-weight: 600; }
+.co-pin.ok { color: var(--lime-ink); }
+:root[data-theme='dark'] .co-pin.ok { color: var(--lime); }
+.co-pin.warn { color: #ffb347; }
+.co-pin.no { color: #ff6b6b; }
+
+@media (max-width: 760px) {
+  .tk-form { grid-template-columns: 1fr; }
+  .tk-steps { grid-template-columns: 1fr; gap: 0; }
+  .tk-steps li { grid-template-columns: 28px 1fr auto; justify-items: start; align-items: center; text-align: left; padding: 8px 0; }
+  .tk-steps li::before { top: auto; bottom: 50%; left: 13px; width: 3px; height: 100%; }
+  .tk-steps li small { text-align: right; }
+}

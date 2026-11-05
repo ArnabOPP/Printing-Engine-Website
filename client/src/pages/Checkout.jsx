@@ -40,11 +40,30 @@ export default function Checkout() {
   const [coupon, setCoupon] = useState(null); // { code, description, discount } once the server has accepted it
   const [couponMsg, setCouponMsg] = useState('');
   const [checking, setChecking] = useState(false);
+  const [pinInfo, setPinInfo] = useState(null); // what Delhivery says about the PIN code: { serviceable, cod, city, state }
   const { items: wishlist } = useWishlist();
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [placed]);
 
   const errors = useMemo(() => validate(form), [form]);
+
+  // Can we deliver to this PIN code, and is cash on delivery available? Also fills in the city and state.
+  useEffect(() => {
+    setPinInfo(null);
+    if (!/^[1-9]\d{5}$/.test(form.pin)) return undefined;
+    let live = true;
+    const t = setTimeout(() => {
+      api(`/api/shipping/check?pin=${form.pin}`)
+        .then((r) => {
+          if (!live || !r.configured) return;
+          setPinInfo(r);
+          if (r.serviceable) setForm((f) => ({ ...f, city: f.city || r.city, state: f.state || r.state }));
+        })
+        .catch(() => {});
+    }, 350);
+    return () => { live = false; clearTimeout(t); };
+  }, [form.pin]);
+  const codBlocked = pay === 'cod' && pinInfo?.serviceable && pinInfo.cod === false;
   const priced = items.filter((i) => i.unit != null);
   const unpriced = items.length - priced.length;
   const subtotal = priced.reduce((n, i) => n + i.unit * i.qty, 0);
@@ -84,6 +103,8 @@ export default function Checkout() {
   const place = async (e) => {
     e.preventDefault();
     if (sending) return;
+    if (pinInfo && !pinInfo.serviceable) { setFailure('Sorry, we cannot deliver to this PIN code yet.'); return; }
+    if (codBlocked) { setFailure('Cash on delivery is not available for this PIN code. Please choose UPI / online payment.'); return; }
     if (Object.keys(errors).length) {
       setTouched(Object.fromEntries(Object.keys(EMPTY).map((k) => [k, true])));
       document.querySelector('.co-field.bad input, .co-field.bad textarea')?.focus();
@@ -157,7 +178,8 @@ export default function Checkout() {
           </dl>
           <p className="co-note">Online payment is not connected yet, so nothing has been charged.</p>
           <div className="co-done-links">
-            <Link to="/print-on-demand" className="btn btn-lime-solid">Design another product</Link>
+            <Link to={`/track?order=${placed.id}`} className="btn btn-lime-solid">Track this order</Link>
+            <Link to="/print-on-demand" className="btn btn-ghost">Design another product</Link>
             <Link to="/" className="btn btn-ghost">Back to home</Link>
           </div>
         </div>
@@ -207,6 +229,9 @@ export default function Checkout() {
               {field('city', 'City', { auto: 'address-level2' })}
               {field('state', 'State', { auto: 'address-level1' })}
               {field('pin', 'PIN code', { mode: 'numeric', auto: 'postal-code', max: 6, ph: '700001' })}
+              {pinInfo && (pinInfo.serviceable
+                ? <p className={`co-pin ${pinInfo.cod ? 'ok' : 'warn'}`}>Delivery available{pinInfo.city ? ` to ${pinInfo.city}` : ''}. {pinInfo.cod ? 'Cash on delivery available.' : 'Cash on delivery is not available here. Choose UPI / online payment.'}</p>
+                : <p className="co-pin no">Sorry, we cannot deliver to this PIN code yet.</p>)}
             </div>
             <label className="co-keep"><input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} /> Save these details to my account for next time</label>
             {field('note', 'Note for us (optional)', { area: true, ph: 'Anything we should know about your design or delivery' })}

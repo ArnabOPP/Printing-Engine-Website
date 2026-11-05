@@ -8,6 +8,8 @@ import {
 import crypto from 'node:crypto';
 import { PUBLIC_DIR, UPLOAD_DIR, audit, data, newId, save } from '../store.js';
 import { cleanContent, cleanCoupon } from '../content.js';
+import * as delhivery from '../delhivery.js';
+import { applyTracking, pollActive, refreshOrder } from '../shipping.js';
 
 const router = Router();
 
@@ -65,7 +67,7 @@ router.post('/me/password', async (req, res, next) => {
 
 const orderRow = (o) => ({
   id: o.id, createdAt: o.createdAt, status: o.status, customer: { name: o.customer.name, phone: o.customer.phone, city: o.customer.city },
-  pieces: o.items.reduce((n, i) => n + i.qty, 0), subtotal: o.subtotal, total: amount(o), discount: o.discount || 0, unpriced: o.unpriced, payment: o.payment, hasArtwork: Object.keys(o.designs || {}).length > 0,
+  pieces: o.items.reduce((n, i) => n + i.qty, 0), subtotal: o.subtotal, total: amount(o), discount: o.discount || 0, unpriced: o.unpriced, payment: o.payment, hasArtwork: Object.keys(o.designs || {}).length > 0, awb: o.shipment?.waybill || '', shipStage: o.shipment?.cancelled ? 'cancelled' : o.shipment?.stage || '',
 });
 
 router.get('/orders', (req, res) => {
@@ -132,6 +134,129 @@ router.get('/orders/:id/files/:name', (req, res, next) => {
     if (!known || !fs.existsSync(file)) throw bad('File not found.', 404);
     res.set({ 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox", 'Cache-Control': 'private, max-age=300' });
     res.sendFile(file);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* ---------- shipping with Delhivery ---------- */
+
+router.get('/shipping', (req, res) => {
+  const { configured, env, pickupLocation, webhookReady } = delhivery.config;
+  res.json({ configured, env, pickupLocation, webhookReady, onTheWay: data().orders.filter((o) => o.shipment?.waybill && !o.shipment.cancelled && !['delivered', 'returned'].includes(o.shipment.stage || '')).length });
+});
+
+router.get('/shipping/check', async (req, res, next) => {
+  try {
+    const pin = String(req.query.pin || '').trim();
+    if (!/^[1-9]\d{5}$/.test(pin)) throw bad('Enter a 6 digit PIN code.');
+    res.json(await delhivery.serviceability(pin));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/shipping/refresh-all', async (req, res, next) => {
+  try {
+    if (!delhivery.config.configured) throw bad('Delhivery is not set up yet.', 503);
+    res.json(await pollActive({ olderThanMs: 0 }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/shipping/pickup', async (req, res, next) => {
+  try {
+    const date = str(req.body?.date, 10);
+    const time = str(req.body?.time, 8);
+    const count = Math.round(Number(req.body?.count));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw bad('Choose the pickup date.');
+    if (!/^\d{2}:\d{2}(:\d{2})?$/.test(time)) throw bad('Choose the pickup time.');
+    if (!(count >= 1 && count <= 500)) throw bad('Enter how many parcels (1 to 500).');
+    const r = await delhivery.requestPickup({ date, time: time.length === 5 ? `${time}:00` : time, count });
+    audit(req.admin.email, 'pickup.requested', `${date} ${time} · ${count} parcels`);
+    save();
+    res.json({ ok: true, id: r.id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const nums = (b) => {
+  const n = (v, label, lo, hi) => {
+    const x = Number(v);
+    if (!Number.isFinite(x) || x < lo || x > hi) throw bad(`${label} must be between ${lo} and ${hi}.`);
+    return x;
+  };
+  return { weight: n(b.weight, 'Weight (grams)', 1, 50000), length: n(b.length, 'Length (cm)', 1, 200), width: n(b.width, 'Width (cm)', 1, 200), height: n(b.height, 'Height (cm)', 1, 200) };
+};
+
+// Book the parcel with Delhivery (or, if it was already booked on Delhivery's own site, just record its AWB).
+router.post('/orders/:id/shipment', async (req, res, next) => {
+  try {
+    const o = findOrder(req.params.id);
+    if (o.shipment && !o.shipment.cancelled) throw bad('This order already has a shipment.');
+    if (o.status === 'cancelled') throw bad('This order is cancelled.');
+    const now = new Date().toISOString();
+    let shipment;
+    if (req.body?.mode === 'manual') {
+      const waybill = str(req.body?.waybill, 30);
+      if (!/^[A-Za-z0-9-]{6,30}$/.test(waybill)) throw bad('Enter the AWB / waybill number from Delhivery.');
+      shipment = { carrier: 'delhivery', waybill, createdVia: 'manual', stage: 'booked', status: 'Booked', events: [], createdAt: now };
+    } else {
+      const parcel = { ...nums(req.body || {}), description: str(req.body?.description, 200), declaredValue: req.body?.declaredValue ? Number(req.body.declaredValue) : undefined };
+      let codAmount;
+      if (o.payment === 'cod') {
+        codAmount = req.body?.codAmount === undefined || req.body.codAmount === '' ? (o.unpriced ? NaN : (o.total ?? o.subtotal)) : Number(req.body.codAmount);
+        if (!Number.isFinite(codAmount) || codAmount < 0) throw bad('This order has items without a price. Enter the amount to collect on delivery.');
+      }
+      const { waybill } = await delhivery.createShipment({ order: o, parcel, codAmount });
+      shipment = { carrier: 'delhivery', waybill, createdVia: 'api', stage: 'booked', status: 'Manifested', events: [], parcel: { weight: parcel.weight, length: parcel.length, width: parcel.width, height: parcel.height }, codAmount: codAmount ?? 0, createdAt: now };
+    }
+    o.shipment = shipment;
+    applyTracking(o, { stage: 'booked' });
+    audit(req.admin.email, 'shipment.created', `${o.id} · AWB ${shipment.waybill} (${shipment.createdVia})`);
+    await save();
+    if (delhivery.config.configured) { try { await refreshOrder(o); } catch { /* tracking appears once Delhivery has the parcel */ } }
+    res.status(201).json({ order: o });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/orders/:id/shipment/refresh', async (req, res, next) => {
+  try {
+    const o = findOrder(req.params.id);
+    if (!o.shipment?.waybill) throw bad('This order has no shipment.');
+    await refreshOrder(o);
+    res.json({ order: o });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/orders/:id/shipment/cancel', async (req, res, next) => {
+  try {
+    const o = findOrder(req.params.id);
+    const s = o.shipment;
+    if (!s?.waybill || s.cancelled) throw bad('There is no active shipment to cancel.');
+    if (s.createdVia === 'api') await delhivery.cancelShipment(s.waybill);
+    s.cancelled = true;
+    audit(req.admin.email, 'shipment.cancelled', `${o.id} · AWB ${s.waybill}`);
+    save();
+    res.json({ order: o });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/orders/:id/shipment/label', async (req, res, next) => {
+  try {
+    const o = findOrder(req.params.id);
+    if (!o.shipment?.waybill) throw bad('This order has no shipment.');
+    const { pdf } = await delhivery.label(o.shipment.waybill);
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="label-${o.shipment.waybill}.pdf"`, 'X-Content-Type-Options': 'nosniff' });
+    res.send(pdf);
   } catch (err) {
     next(err);
   }

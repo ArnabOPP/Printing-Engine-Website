@@ -110,7 +110,7 @@ export default function Layout() {
             </>
           ) : null}</span>
           <span className="topbar-right">
-            <a href="/#how">Track Order</a>
+            <Link to="/track">Track Order</Link>
             <a href="/#how">Help</a>
             <a href="/#footer">Contact</a>
           </span>
@@ -161,7 +161,7 @@ export default function Layout() {
           <div>
             <h4>Help</h4>
             <a href="/#how">FAQs</a><a href="/#how">Size Guide</a><a href="/#how">Artwork Guidelines</a><a href="/#how">Shipping Policy</a>
-            <a href="/#how">Returns & Refunds</a><a href="/#how">Track Order</a><a href="/#footer">Contact Us</a>
+            <a href="/#how">Returns & Refunds</a><NavLink to="/track">Track Order</NavLink><a href="/#footer">Contact Us</a>
           </div>
           <div>
             <h4>Company</h4>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Download, Search, Trash2, X } from 'lucide-react';
 import { api, fileUrl } from '../api.js';
+import { DelhiveryTools, ShippingSection } from './Shipping.jsx';
 import { Loading, PAY_LABEL, PageHead, STATUS_LABEL, StatusBadge, fmtDate, fmtTime, rupees, useLoad } from './ui.jsx';
 
 const STATUS_ORDER = Object.keys(STATUS_LABEL);
@@ -140,6 +141,8 @@ function OrderPanel({ id, admin, onClose, onChanged }) {
               <p className="ad-muted">Prices are the customer’s estimate at checkout. Confirm the final price and shipping with them.</p>
             </section>
 
+            <ShippingSection order={o} onChanged={async () => { await reload(); onChanged(); }} />
+
             {Object.entries(o.designs || {}).map(([slug, d]) => {
               const cfg = o.items.find((i) => i.slug === slug)?.config;
               return (
@@ -194,6 +197,7 @@ export default function Orders({ admin }) {
       <PageHead title="Orders">
         <label className="ad-search"><Search size={15} /><input type="search" placeholder="Search order, name, phone, city" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search orders" /></label>
       </PageHead>
+      <DelhiveryTools />
       <div className="ad-filters" role="tablist" aria-label="Filter by status">
         <button type="button" role="tab" aria-selected={!status} className={`ad-chip${!status ? ' on' : ''}`} onClick={() => set('status', '')}>All</button>
         {STATUS_ORDER.map((s) => (
@@ -211,7 +215,7 @@ export default function Orders({ admin }) {
                   <tr key={o.id} tabIndex={0} onClick={() => set('open', o.id)} onKeyDown={(e) => e.key === 'Enter' && set('open', o.id)}>
                     <td><b>{o.id}</b><small>{fmtDate(o.createdAt)}</small></td>
                     <td>{o.customer.name}<small>{o.customer.phone} · {o.customer.city}</small></td>
-                    <td><StatusBadge status={o.status} />{o.hasArtwork && <small>has artwork</small>}</td>
+                    <td><StatusBadge status={o.status} />{o.awb && <small className={o.shipStage === 'cancelled' ? '' : 'ad-mono'}>AWB {o.awb}</small>}{o.hasArtwork && <small>has artwork</small>}</td>
                     <td>{o.pieces}</td>
                     <td>{PAY_LABEL[o.payment]}</td>
                     <td className="num">{rupees(o.total ?? o.subtotal)}{o.discount ? <small>coupon −{rupees(o.discount)}</small> : null}{o.unpriced ? <small className="ad-warn">+ unpriced</small> : null}</td>
