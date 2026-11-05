@@ -69,6 +69,17 @@ async function call(path, { method = 'GET', body, form, query, raw = false } = {
 
 /* ---------- is this PIN code served? ---------- */
 
+// Delhivery gives the state as a short code (for example WB). The checkout form wants the full name.
+const STATES = {
+  AN: 'Andaman and Nicobar Islands', AP: 'Andhra Pradesh', AR: 'Arunachal Pradesh', AS: 'Assam', BR: 'Bihar', CH: 'Chandigarh', CG: 'Chhattisgarh',
+  DN: 'Dadra and Nagar Haveli and Daman and Diu', DD: 'Dadra and Nagar Haveli and Daman and Diu', DL: 'Delhi', GA: 'Goa', GJ: 'Gujarat', HR: 'Haryana',
+  HP: 'Himachal Pradesh', JK: 'Jammu and Kashmir', JH: 'Jharkhand', KA: 'Karnataka', KL: 'Kerala', LA: 'Ladakh', LD: 'Lakshadweep', MP: 'Madhya Pradesh',
+  MH: 'Maharashtra', MN: 'Manipur', ML: 'Meghalaya', MZ: 'Mizoram', NL: 'Nagaland', OD: 'Odisha', OR: 'Odisha', PY: 'Puducherry', PB: 'Punjab',
+  RJ: 'Rajasthan', SK: 'Sikkim', TN: 'Tamil Nadu', TS: 'Telangana', TG: 'Telangana', TR: 'Tripura', UP: 'Uttar Pradesh', UK: 'Uttarakhand', UT: 'Uttarakhand', WB: 'West Bengal',
+};
+const stateName = (code) => STATES[String(code || '').trim().toUpperCase()] || (String(code || '').length > 3 ? String(code) : '');
+
+
 export async function serviceability(pin) {
   const json = await call('/c/api/pin-codes/json/', { query: { filter_codes: pin } });
   const p = json?.delivery_codes?.[0]?.postal_code;
@@ -79,7 +90,7 @@ export async function serviceability(pin) {
     prepaid: yes(p.pre_paid),
     cod: yes(p.cod),
     city: p.district || p.city || '',
-    state: p.state_code || p.inc || '',
+    state: stateName(p.state_code),
   };
 }
 
