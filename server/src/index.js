@@ -58,7 +58,7 @@ app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   if (err.type === 'entity.too.large') return res.status(413).json({ error: 'That request is too large.' });
-  if (err.status && err.status < 500) return res.status(err.status).json({ error: err.message });
+  if (err.status && (err.status < 500 || err.expose)) return res.status(err.status).json({ error: err.message });
   console.error(err);
   return res.status(500).json({ error: 'Something went wrong on our side.' });
 });

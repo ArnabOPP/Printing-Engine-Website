@@ -28,7 +28,8 @@ export const config = {
 
 export const trackingUrl = (awb) => `https://www.delhivery.com/track-v2/package/${encodeURIComponent(awb)}`;
 
-const fail = (msg, status = 502) => Object.assign(new Error(msg), { status });
+// `expose`: the message is safe and useful to show to the admin who triggered the call.
+const fail = (msg, status = 502) => Object.assign(new Error(msg), { status, expose: true });
 
 async function call(path, { method = 'GET', body, form, query, raw = false } = {}) {
   if (!TOKEN) throw fail('Delhivery is not set up yet.', 503);
