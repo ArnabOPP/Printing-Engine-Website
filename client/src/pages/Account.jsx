@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, ChevronRight, Heart, MapPin, Package, ShieldAlert, Trash2, User } from 'lucide-react';
+import { useAuth } from '../context/AuthContext.jsx';
 import { useWishlist } from '../context/WishlistContext.jsx';
 import { EMPTY_ACCOUNT, readAccount, readOrders, validateDetails, writeAccount } from '../account.js';
 import { rupees } from '../studio/pricing.js';
@@ -10,7 +11,16 @@ const fmtDate = (iso) => new Date(iso).toLocaleDateString('en-IN', { day: 'numer
 
 export default function Account() {
   const { count: saved } = useWishlist();
-  const [form, setForm] = useState(readAccount);
+  const { user, available, signOut } = useAuth();
+  const [form, setForm] = useState(() => {
+    const a = readAccount();
+    return { ...a, name: a.name || '', email: a.email || '' };
+  });
+  // Once signed in, fill in the name and email from the account if they are still empty.
+  useEffect(() => {
+    if (!user) return;
+    setForm((f) => ({ ...f, name: f.name || user.displayName || '', email: f.email || user.email || '' }));
+  }, [user]);
   const [touched, setTouched] = useState({});
   const [savedNote, setSavedNote] = useState('');
   const [orders, setOrders] = useState(readOrders);
@@ -64,7 +74,11 @@ export default function Account() {
         <span className="ac-avatar" aria-hidden="true">{form.name.trim() ? form.name.trim()[0].toUpperCase() : <User size={26} />}</span>
         <div>
           <h1>{form.name.trim() ? `Hi, ${form.name.trim().split(' ')[0]}` : 'My account'}</h1>
-          <p className="co-lead">Keep your details here so checkout is quick. Sign-in is not set up yet, so everything is saved on this device only.</p>
+          <p className="co-lead">Keep your details here so checkout is quick. {user ? `Signed in as ${user.email}.` : 'Sign in to keep your account with you. Details are saved on this device.'}</p>
+          <div className="ac-session">
+            {user ? <button type="button" className="btn btn-ghost" onClick={signOut}>Sign out</button>
+              : available && <><Link to="/login" className="btn btn-lime-solid">Sign in</Link><Link to="/signup" className="btn btn-ghost">Create account</Link></>}
+          </div>
         </div>
       </div>
 

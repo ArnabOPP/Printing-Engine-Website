@@ -5,6 +5,7 @@ import App from './App.jsx';
 import { api } from './api.js';
 import { applyCatalog } from './printProducts.js';
 import { applyContent } from './data.js';
+import { AuthProvider } from './context/AuthContext.jsx';
 import { CartProvider } from './context/CartContext.jsx';
 import { WishlistProvider } from './context/WishlistContext.jsx';
 import './index.css';
@@ -17,6 +18,7 @@ import './checkout.css';
 import './wishlist-account.css';
 import './sections.css';
 import './track.css';
+import './auth.css';
 
 // Load the shop's saved prices and visibility before showing anything, so the first page is already right.
 // If the server is slow or away, the built-in defaults are used.
@@ -35,11 +37,13 @@ loadCatalog().then(() => {
   ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>
       <BrowserRouter>
-        <CartProvider>
-          <WishlistProvider>
-            <App />
-          </WishlistProvider>
-        </CartProvider>
+        <AuthProvider>
+          <CartProvider>
+            <WishlistProvider>
+              <App />
+            </WishlistProvider>
+          </CartProvider>
+        </AuthProvider>
       </BrowserRouter>
     </React.StrictMode>
   );

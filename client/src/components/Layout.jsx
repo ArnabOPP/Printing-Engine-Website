@@ -4,6 +4,7 @@ import { Search, User, Heart, ShoppingBag, Moon, Sun, ChevronDown, ArrowRight, M
 import { siInstagram, siFacebook, siWhatsapp, siYoutube, siVisa, siMastercard } from 'simple-icons';
 import { useCart } from '../context/CartContext.jsx';
 import { useWishlist } from '../context/WishlistContext.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
 import { home } from '../data.js';
 
 function getInitialTheme() {
@@ -93,6 +94,7 @@ export default function Layout() {
   const [theme, setTheme] = useState(getInitialTheme);
   const { count } = useCart();
   const { count: saved } = useWishlist();
+  const { user } = useAuth();
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -135,7 +137,7 @@ export default function Layout() {
             <button className="icon-btn" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label="Toggle theme">
               {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
             </button>
-            <Link to="/account" className="icon-btn" aria-label="My account"><User size={20} /></Link>
+            <Link to={user ? '/account' : '/login'} className="icon-btn" aria-label={user ? 'My account' : 'Sign in'} title={user ? user.email : 'Sign in'}><User size={20} /></Link>
             <Link to="/wishlist" className="icon-btn cart" aria-label={`Wishlist, ${saved} saved`}><Heart size={20} />{saved > 0 && <b>{saved}</b>}</Link>
             <Link to="/checkout" className="icon-btn cart" aria-label={`Cart, ${count} items`}><ShoppingBag size={20} /><b>{count}</b></Link>
           </div>

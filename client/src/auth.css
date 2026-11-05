@@ -1,0 +1,20 @@
+.au { display: flex; justify-content: center; padding-block: 48px 72px; }
+.au-card { color: var(--text); box-shadow: var(--shadow); width: 100%; max-width: 440px; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 32px 28px; }
+.au-card h1 { margin: 0 0 6px; font-size: 1.6rem; }
+.au-form { display: grid; gap: 14px; margin-top: 4px; }
+.au-input { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 10px; padding: 0 12px; background: transparent; }
+.au-input:focus-within { border-color: var(--lime); outline: 2px solid var(--lime); }
+.au-input input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; padding: 12px 0; }
+.au-eye { background: none; border: 0; color: inherit; cursor: pointer; display: grid; place-items: center; padding: 4px; }
+.au-google { width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: inherit; font: inherit; font-weight: 600; cursor: pointer; margin-top: 8px; }
+.au-google:hover:not(:disabled) { background: rgba(128,128,128,.1); }
+.au-or { display: flex; align-items: center; gap: 12px; margin: 16px 0 8px; font-size: .8rem; opacity: .7; }
+.au-or::before, .au-or::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.au-submit { width: 100%; justify-content: center; margin-top: 4px; }
+.au-error { color: #d92d20; font-size: .88rem; margin: 0; }
+.au-note { color: #15803d; font-size: .88rem; margin: 0; }
+.au-links { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 18px; font-size: .9rem; }
+.au-links button, .au-guest a { background: none; border: 0; padding: 0; color: inherit; font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
+.au-guest { margin: 22px 0 0; font-size: .85rem; opacity: .8; }
+.ac-session { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; font-size: .9rem; }
+.ac-session .btn { padding: 8px 14px; }

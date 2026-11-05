@@ -10,6 +10,7 @@ import Design from './pages/Design.jsx';
 import Checkout from './pages/Checkout.jsx';
 import Wishlist from './pages/Wishlist.jsx';
 import Account from './pages/Account.jsx';
+import Login from './pages/Login.jsx';
 import Track from './pages/Track.jsx';
 
 // The admin panel is loaded only when someone opens /admin, so it stays out of the shop's main download.
@@ -30,6 +31,8 @@ export default function App() {
         <Route path="checkout" element={<Checkout />} />
         <Route path="wishlist" element={<Wishlist />} />
         <Route path="account" element={<Account />} />
+        <Route path="login" element={<Login />} />
+        <Route path="signup" element={<Login />} />
         <Route path="track" element={<Track />} />
         <Route path="*" element={<NotFound />} />
       </Route>
