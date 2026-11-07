@@ -12,22 +12,27 @@ import HomePage from './HomePage.jsx';
 import Coupons from './Coupons.jsx';
 import Team from './Team.jsx';
 import { ActivityLog, MyAccount } from './Misc.jsx';
+import { adminGoogleIdToken, adminIdToken, resetAdminPassword } from './firebaseAuth.js';
+import { authMessage, firebaseReady } from '../firebase.js';
 
 function Login({ onDone }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState('');
 
   const submit = async (e) => {
     e.preventDefault();
     setBusy(true);
     setError('');
+    setNote('');
     try {
-      const { admin } = await api('/api/admin/login', { method: 'POST', body: { email, password } });
+      const idToken = await adminIdToken(email, password);
+      const { admin } = await api('/api/admin/login', { method: 'POST', body: { idToken } });
       onDone(admin);
     } catch (err) {
-      setError(err.message);
+      setError(err.code ? authMessage(err) : err.message);
     } finally {
       setBusy(false);
     }
@@ -38,11 +43,30 @@ function Login({ onDone }) {
       <form className="ad-login-card" onSubmit={submit}>
         <img src="/logo.jpg" alt="" width="56" height="56" />
         <h1>Admin sign in</h1>
-        <p className="ad-muted">For the Printing Engine team only.</p>
+        <p className="ad-muted">Sign in with your Firebase account. Access is limited to approved team members.</p>
         <label>Email<input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus /></label>
         <label>Password<input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
         {error && <p className="ad-error" role="alert">{error}</p>}
-        <button className="ad-btn primary" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+        {note && <p className="ad-note" role="status">{note}</p>}
+        {!firebaseReady && <p className="ad-error">Firebase sign-in is not configured on this website.</p>}
+        <button className="ad-btn primary" disabled={busy || !firebaseReady}>{busy ? 'Signing in…' : 'Sign in'}</button>
+        <button type="button" className="ad-btn" disabled={busy || !firebaseReady} onClick={async () => {
+          setBusy(true); setError(''); setNote('');
+          try {
+            const idToken = await adminGoogleIdToken();
+            const { admin } = await api('/api/admin/login', { method: 'POST', body: { idToken } });
+            onDone(admin);
+          } catch (err) { setError(err.code ? authMessage(err) : err.message); }
+          finally { setBusy(false); }
+        }}>Continue with Google</button>
+        <button type="button" className="ad-btn" disabled={busy || !firebaseReady} onClick={async () => {
+          setError(''); setNote('');
+          if (!email.trim()) { setError('Enter your email address first.'); return; }
+          setBusy(true);
+          try { await resetAdminPassword(email); setNote('If this email has an account, a password-reset link is on its way.'); }
+          catch (err) { setError(err.code ? authMessage(err) : err.message); }
+          finally { setBusy(false); }
+        }}>Forgot password?</button>
       </form>
     </div>
   );

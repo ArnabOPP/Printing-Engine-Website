@@ -8,6 +8,7 @@ import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pe-delivery-test-'));
+process.env.ADMIN_AUTH_PROVIDER = 'local';
 Object.assign(process.env, { DATA_DIR: dir, NODE_ENV: 'development', JWT_SECRET: 'delivery-test-secret-at-least-32-characters', DELHIVERY_TOKEN: 'test-only', DELHIVERY_PICKUP_LOCATION: 'Test Warehouse', DELHIVERY_WEBHOOK_SECRET: 'test-webhook', R2_BUCKET: '', R2_REQUIRED: 'false' });
 const listen = (app) => new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
 let service = { pre_paid: 'Y', cod: 'Y', district: 'Kolkata', state_code: 'WB' };

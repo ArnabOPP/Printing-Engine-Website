@@ -25,6 +25,21 @@ export default function Team({ me }) {
     if (password) run(() => api(`/api/admin/admins/${a.id}`, { method: 'PATCH', body: { password } }), 'Password changed. They are signed out everywhere.');
   };
 
+  if (me.authProvider === 'firebase') return (
+    <>
+      <PageHead title="Admin team" />
+      <p className="ad-muted">Manage team access in Firebase Console → Firestore → adminAccess. Use each person’s Authentication UID as the document ID. Set status to admin or owner. Set it to disabled or delete the document to remove access.</p>
+      <section className="ad-card flush">
+        {!data ? <Loading error={error} loading={loading} /> : (
+          <div className="ad-scroll"><table className="ad-table">
+            <thead><tr><th>Name</th><th>Firebase UID</th><th>Status</th></tr></thead>
+            <tbody>{data.admins.map((a) => <tr key={a.id}><td><b>{a.name || 'Team member'}</b><small>{a.email || ''}</small></td><td>{a.firebaseUid}</td><td>{a.status || 'No access'}</td></tr>)}</tbody>
+          </table></div>
+        )}
+      </section>
+    </>
+  );
+
   return (
     <>
       <PageHead title="Admin team" />

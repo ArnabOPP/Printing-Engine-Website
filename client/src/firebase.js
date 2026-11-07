@@ -13,6 +13,7 @@ const config = {
   storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
 };
+export const firebaseConfig = config;
 
 export const firebaseReady = Boolean(config.apiKey && config.authDomain && config.projectId && config.appId);
 const app = firebaseReady ? initializeApp(config) : null;

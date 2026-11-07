@@ -6,3 +6,6 @@ dist
 .claude
 server/data
 server/.env
+**/*firebase-adminsdk*.json
+**/*service-account*.json
+**/serviceAccountKey.json

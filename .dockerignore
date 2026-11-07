@@ -5,3 +5,6 @@ node_modules
 **/data
 .git
 client/dist
+**/*firebase-adminsdk*.json
+**/*service-account*.json
+**/serviceAccountKey.json

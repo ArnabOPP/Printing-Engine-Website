@@ -2,6 +2,10 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { COOKIE_NAME, COOKIE_SAMESITE, JWT_SECRET, SESSION_HOURS, isProd } from './config.js';
 import { data } from './store.js';
+import { firebaseAdminMode, firebaseAuthError, firebaseIdentity } from './firebaseAdmin.js';
+import { readAdminAccess } from './firebaseAccess.js';
+
+const FIREBASE_COOKIE = 'pe_admin_firebase';
 
 export const MIN_PASSWORD = 10;
 
@@ -30,28 +34,42 @@ const cookieOptions = () => ({
   path: '/',
 });
 
-export function startSession(res, admin) {
-  const token = jwt.sign({ sub: admin.id, tv: admin.tokenVersion || 0 }, JWT_SECRET, { expiresIn: `${SESSION_HOURS}h` });
+export function startSession(res, admin, { firebaseSession } = {}) {
+  const token = jwt.sign({ sub: admin.id, tv: admin.tokenVersion || 0, ...(firebaseSession ? { firebaseUid: admin.firebaseUid } : {}) }, JWT_SECRET, { expiresIn: `${SESSION_HOURS}h` });
   res.cookie(COOKIE_NAME, token, cookieOptions());
+  if (firebaseSession) res.cookie(FIREBASE_COOKIE, firebaseSession, cookieOptions());
 }
 
-export const endSession = (res) => res.clearCookie(COOKIE_NAME, { ...cookieOptions(), maxAge: undefined });
+export const endSession = (res) => {
+  for (const name of [COOKIE_NAME, FIREBASE_COOKIE]) res.clearCookie(name, { ...cookieOptions(), maxAge: undefined });
+};
 
 // Works out who is calling from the login cookie. Disabled admins and changed passwords end old sessions at once.
-function currentAdmin(req) {
+async function currentAdmin(req) {
   const token = req.cookies?.[COOKIE_NAME];
   if (!token) return null;
   try {
-    const { sub, tv } = jwt.verify(token, JWT_SECRET);
+    const { sub, tv, firebaseUid } = jwt.verify(token, JWT_SECRET);
+    if (firebaseAdminMode()) {
+      if (!firebaseUid || firebaseUid !== sub || !req.cookies?.[FIREBASE_COOKIE]) return null;
+      const identity = await firebaseIdentity().verifySessionCookie(req.cookies[FIREBASE_COOKIE], true);
+      if (identity.uid !== firebaseUid) return null;
+      return readAdminAccess(firebaseUid, identity);
+    }
     const admin = data().admins.find((a) => a.id === sub);
     return admin && !admin.disabled && (admin.tokenVersion || 0) === tv ? admin : null;
-  } catch {
+  } catch (err) {
+    if (err.status === 503 || err.code) {
+      const error = firebaseAuthError(err);
+      if (error.status !== 401) throw error;
+    }
     return null;
   }
 }
 
-export function requireAdmin(req, res, next) {
-  const admin = currentAdmin(req);
+export async function requireAdmin(req, res, next) {
+  let admin;
+  try { admin = await currentAdmin(req); } catch (err) { return next(err); }
   if (!admin) return res.status(401).json({ error: 'Please sign in.' });
   // Anything that changes data must carry this header. Browsers only let the real site send it (CORS),
   // so a page on another website cannot make a signed-in admin change something.
@@ -67,4 +85,4 @@ export function requireOwner(req, res, next) {
   return next();
 }
 
-export const publicAdmin = (a) => ({ id: a.id, email: a.email, name: a.name, role: a.role, disabled: !!a.disabled, createdAt: a.createdAt, lastLoginAt: a.lastLoginAt || null });
+export const publicAdmin = (a) => ({ id: a.id, email: a.email, name: a.name, role: a.role, firebaseUid: a.firebaseUid || null, authProvider: firebaseAdminMode() ? 'firebase' : 'local', disabled: !!a.disabled, createdAt: a.createdAt, lastLoginAt: a.lastLoginAt || null });

@@ -63,6 +63,8 @@ The receiver saves scans before acknowledging them. File deletion runs asynchron
 
 ## Admin operation
 
+Admin sign-in now uses Firebase. Configure the service-account settings and protected `adminAccess/{uid}` records using [FIREBASE-ADMINS.md](FIREBASE-ADMINS.md); creating a local owner with `admin:create` is not sufficient for Firebase mode.
+
 - For COD, confirm the final cash-to-collect amount when booking, especially for items quoted after checkout.
 - For UPI/online orders, first verify receipt in the bank/payment service. Enter the final amount and UTR/reference in the order's **Confirm payment received** form. This is a manual receipt confirmation, not a payment gateway integration.
 - If booking times out or the courier returns an ambiguous error, use **Find existing shipment** or attach the correct AWB. Automatic rebooking stays blocked. Only the owner can reset an uncertain attempt after checking the courier portal and confirming no shipment exists; the server also checks the courier API.

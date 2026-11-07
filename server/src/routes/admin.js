@@ -12,6 +12,9 @@ import { cleanContent, cleanCoupon } from '../content.js';
 import * as delhivery from '../delhivery.js';
 import { pollActive, refreshOrder } from '../shipping.js';
 import { bookShipment, reconcileBooking, withShipmentLock } from '../booking.js';
+import { firebaseLogin } from '../firebaseLogin.js';
+import { firebaseAdminMode, firebaseAccessStore } from '../firebaseAdmin.js';
+import { ADMIN_COLLECTION } from '../firebaseAccess.js';
 
 const router = Router();
 
@@ -29,6 +32,12 @@ const loginLimit = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHead
 
 router.post('/login', loginLimit, async (req, res, next) => {
   try {
+    if (req.get('x-admin-request') !== '1') throw bad('Request blocked.', 403);
+    if (firebaseAdminMode()) {
+      const { admin, sessionCookie } = await firebaseLogin(req.body?.idToken);
+      startSession(res, admin, { firebaseSession: sessionCookie });
+      return res.json({ admin: publicAdmin(admin) });
+    }
     const admin = await checkLogin(req.body?.email ?? '', req.body?.password ?? '');
     if (!admin) return res.status(401).json({ error: 'Wrong email or password.' });
     admin.lastLoginAt = new Date().toISOString();
@@ -41,7 +50,10 @@ router.post('/login', loginLimit, async (req, res, next) => {
   }
 });
 
-router.post('/logout', (req, res) => { endSession(res); res.json({ ok: true }); });
+router.post('/logout', (req, res) => {
+  if (req.get('x-admin-request') !== '1') return res.status(403).json({ error: 'Request blocked.' });
+  endSession(res); res.json({ ok: true });
+});
 
 // Everything below needs a signed-in admin.
 router.use(requireAdmin);
@@ -50,6 +62,7 @@ router.get('/me', (req, res) => res.json({ admin: publicAdmin(req.admin), status
 
 router.post('/me/password', async (req, res, next) => {
   try {
+    if (firebaseAdminMode()) throw bad('Use the Firebase password-reset email to change your password.');
     const { current, next: pw } = req.body || {};
     if (!(await checkLogin(req.admin.email, current ?? ''))) throw bad('Your current password is wrong.');
     const problem = passwordProblem(pw);
@@ -487,10 +500,19 @@ router.delete('/coupons/:id', async (req, res, next) => {
 
 /* ---------- admin team (owner only) ---------- */
 
-router.get('/admins', requireOwner, (req, res) => res.json({ admins: data().admins.map(publicAdmin) }));
+router.get('/admins', requireOwner, async (req, res, next) => {
+  try {
+    if (firebaseAdminMode()) {
+      const records = await firebaseAccessStore().collection(ADMIN_COLLECTION).limit(100).get();
+      return res.json({ admins: records.docs.map((doc) => ({ id: doc.id, firebaseUid: doc.id, ...doc.data() })), managedInFirebase: true });
+    }
+    res.json({ admins: data().admins.map(publicAdmin) });
+  } catch (err) { next(err); }
+});
 
 router.post('/admins', requireOwner, async (req, res, next) => {
   try {
+    if (firebaseAdminMode()) throw bad('Manage adminAccess records in the Firebase Console.');
     const email = str(req.body?.email, 120).toLowerCase();
     const name = str(req.body?.name, 80);
     if (!/^\S+@\S+\.\S+$/.test(email)) throw bad('Enter a valid email address.');
@@ -510,6 +532,7 @@ router.post('/admins', requireOwner, async (req, res, next) => {
 
 router.patch('/admins/:id', requireOwner, async (req, res, next) => {
   try {
+    if (firebaseAdminMode()) throw bad('Manage adminAccess records in the Firebase Console.');
     const a = data().admins.find((x) => x.id === req.params.id);
     if (!a) throw bad('Admin not found.', 404);
     if (a.id === req.admin.id && req.body?.disabled) throw bad('You cannot disable your own account.');
@@ -531,6 +554,7 @@ router.patch('/admins/:id', requireOwner, async (req, res, next) => {
 
 router.delete('/admins/:id', requireOwner, async (req, res, next) => {
   try {
+    if (firebaseAdminMode()) throw bad('Manage adminAccess records in the Firebase Console.');
     const a = data().admins.find((x) => x.id === req.params.id);
     if (!a) throw bad('Admin not found.', 404);
     if (a.role === 'owner') throw bad('The owner account cannot be removed.');

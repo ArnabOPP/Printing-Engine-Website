@@ -1,5 +1,7 @@
 # Admin panel
 
+**Firebase admin sign-in:** follow [FIREBASE-ADMINS.md](FIREBASE-ADMINS.md). Team members authenticate through Firebase, and `adminAccess/{uid}.status` controls access. The local-password setup below describes the legacy mode; it does not create Firebase access records.
+
 Delivery deployment and operation are documented in [DELIVERY-DEPLOYMENT.md](DELIVERY-DEPLOYMENT.md). Online orders now require an admin-confirmed payment receipt before prepaid shipment booking. Ambiguous booking attempts must be reconciled before retrying.
 
 The admin panel lives at **`/admin`** on the website. It is not linked from anywhere and is marked `noindex`, but

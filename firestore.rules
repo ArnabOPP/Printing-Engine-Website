@@ -1,6 +1,9 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Team authorization is edited only in the Console or by a trusted server.
+    // A shopper cannot grant themselves access, even to their own UID record.
+    match /adminAccess/{uid} { allow read, write: if false; }
     // Each signed-in customer can read and write only their own details, wishlist and orders.
     match /users/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;

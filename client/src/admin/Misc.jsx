@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { api } from '../api.js';
 import { Loading, PageHead, fmtTime, useLoad } from './ui.jsx';
+import { resetAdminPassword } from './firebaseAuth.js';
+import { authMessage } from '../firebase.js';
 
 export function ActivityLog() {
   const { data, error, loading, reload } = useLoad('/api/admin/activity');
@@ -29,6 +31,22 @@ export function MyAccount({ admin }) {
   const [msg, setMsg] = useState('');
   const [ok, setOk] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  if (admin.authProvider === 'firebase') return (
+    <>
+      <PageHead title="My account" />
+      <section className="ad-card"><h2>{admin.name}</h2><p className="ad-muted">{admin.email} · {admin.role}</p>
+        <p>Your sign-in is managed by Firebase Authentication.</p>
+        <button className="ad-btn" disabled={busy || !admin.email} onClick={async () => {
+          setBusy(true); setMsg('');
+          try { await resetAdminPassword(admin.email); setOk(true); setMsg('A password-reset link has been requested for your Firebase account.'); }
+          catch (err) { setOk(false); setMsg(err.code ? authMessage(err) : err.message); }
+          finally { setBusy(false); }
+        }}>Send password-reset email</button>
+        {msg && <p className={ok ? 'ad-note' : 'ad-error'} role="status">{msg}</p>}
+      </section>
+    </>
+  );
 
   const submit = async (e) => {
     e.preventDefault();
