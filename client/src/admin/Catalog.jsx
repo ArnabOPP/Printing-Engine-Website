@@ -7,7 +7,7 @@ const byName = (n) => allGroups.flatMap((g) => g.items).find((i) => i.name === n
 const num = (v) => (v === '' || Number.isNaN(Number(v)) ? '' : v);
 
 // The prices and what is shown on the website. "Save" puts them live for every visitor on their next page load.
-export default function Catalog() {
+export default function Catalog({ title = 'Customise & prices' }) {
   const { data, error, loading } = useLoad('/api/admin/catalog');
   const [d, setD] = useState(null);
   const [msg, setMsg] = useState('');
@@ -38,7 +38,7 @@ export default function Catalog() {
     });
   }, [data]);
 
-  if (!d) return <><PageHead title="Customise & prices" /><Loading error={error} loading={loading} /></>;
+  if (!d) return <><PageHead title={title} /><Loading error={error} loading={loading} /></>;
 
   const toggle = (key, value) => setD((c) => ({ ...c, [key]: c[key].includes(value) ? c[key].filter((x) => x !== value) : [...c[key], value] }));
   const setRate = (group, key) => (e) => setD((c) => ({ ...c, [group]: { ...c[group], [key]: num(e.target.value) } }));
@@ -76,7 +76,7 @@ export default function Catalog() {
 
   return (
     <>
-      <PageHead title="Customise & prices">
+      <PageHead title={title}>
         <button type="button" className="ad-btn" onClick={reset}>Reset to defaults</button>
         <button type="button" className="ad-btn primary" onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>
       </PageHead>

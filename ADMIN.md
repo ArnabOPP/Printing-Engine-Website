@@ -4,7 +4,7 @@
 
 Delivery deployment and operation are documented in [DELIVERY-DEPLOYMENT.md](DELIVERY-DEPLOYMENT.md). Online orders now require an admin-confirmed payment receipt before prepaid shipment booking. Ambiguous booking attempts must be reconciled before retrying.
 
-The **Custom orders** sidebar entry (`/admin/custom-orders`) lists customer customisations, including mixed baskets. Review design files and mockups first, then material, colour, print method, sizes and quantities. Status, payment confirmation, notes and shipping update the same order shown in **Orders**. The displayed order amount includes every item in a mixed basket. Artwork removed after dispatch is explicitly labelled, and the custom order remains in the list.
+The separate **Custom Admin** panel lives at `/custom-admin`, with its own sign-in screen and navigation for Custom orders, Custom products & prices, and My account. It uses the same approved Firebase identities as `/admin`. The old `/admin/custom-orders` URL redirects to it. Custom orders includes mixed baskets. Review design files and mockups first, then material, colour, print method, sizes and quantities. Status, payment confirmation, notes and shipping update the same order shown in the main panel's Orders. The displayed order amount includes every item in a mixed basket. Artwork removed after dispatch is explicitly labelled, and the custom order remains in the list. Catalogue visibility and print/base prices remain shared with the storefront.
 
 The admin panel lives at **`/admin`** on the website. It is not linked from anywhere and is marked `noindex`, but
 that is only to keep it tidy. What actually keeps it private is the server: every admin request needs a signed-in

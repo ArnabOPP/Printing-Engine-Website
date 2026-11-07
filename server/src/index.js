@@ -59,7 +59,7 @@ if (isProd && process.env.API_ONLY !== 'true') {
   const clientDist = path.join(__dirname, '../../client/dist');
   app.use(express.static(clientDist));
   app.get('*', (req, res) => {
-    if (req.path.startsWith('/admin')) res.set('X-Robots-Tag', 'noindex, nofollow');
+    if (req.path.startsWith('/admin') || req.path.startsWith('/custom-admin')) res.set('X-Robots-Tag', 'noindex, nofollow');
     res.sendFile(path.join(clientDist, 'index.html'));
   });
 }

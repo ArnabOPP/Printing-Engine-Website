@@ -21,6 +21,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="admin/*" element={<Suspense fallback={null}><AdminApp /></Suspense>} />
+      <Route path="custom-admin/*" element={<Suspense fallback={null}><AdminApp key="custom-admin" customOnly /></Suspense>} />
       <Route element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="about" element={<About />} />
