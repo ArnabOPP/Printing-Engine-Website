@@ -218,6 +218,36 @@ test('single-writer lock prevents a second process from using the same database'
   again();
 });
 
+test('custom order view includes mixed, blank, legacy and dispatched custom orders, with filtering before pagination', async () => {
+  const previous = data().orders;
+  const base = { createdAt: new Date().toISOString(), customer, status: 'placed', payment: 'cod', subtotal: 500, total: 500, designs: {} };
+  const shop = { name: 'Ready-made tee', qty: 1, unit: 500 };
+  const custom = { name: 'Personalised tee', qty: 2, unit: 300, designId: 'design-test', config: { colour: 'white', sizes: { L: 2 } } };
+  data().orders = [
+    ...Array.from({ length: 305 }, (_, i) => ({ ...base, id: `SHOP-${i}`, items: [shop] })),
+    { ...base, id: 'CUSTOM', items: [custom], designs: { 'design-test': { front: [], mockups: { front: { file: 'mockup.png' } } } } },
+    { ...base, id: 'MIXED', items: [shop, custom] },
+    { ...base, id: 'LEGACY', items: [{ name: 'Legacy tee', qty: 1, slug: 'regular-t-shirt' }], designs: { 'regular-t-shirt': { front: [] } } },
+    { ...base, id: 'DISPATCHED', status: 'shipped', assetsDeletedAt: new Date().toISOString(), items: [custom] },
+  ];
+  try {
+    const response = await request('/admin/orders?kind=custom');
+    assert.equal(response.status, 200);
+    const result = await response.json();
+    assert.equal(result.total, 4);
+    assert.deepEqual(result.orders.map((o) => o.id), ['CUSTOM', 'MIXED', 'LEGACY', 'DISPATCHED']);
+    assert.equal(result.orders.find((o) => o.id === 'MIXED').type, 'mixed');
+    assert.equal(result.orders.find((o) => o.id === 'MIXED').customPieces, 2);
+    assert.equal(result.orders.find((o) => o.id === 'MIXED').pieces, 3);
+    assert.equal(result.orders[0].designCount, 1);
+    const shipped = await (await request('/admin/orders?kind=custom&status=shipped')).json();
+    assert.deepEqual(shipped.orders.map((o) => o.id), ['DISPATCHED']);
+    const search = await (await request('/admin/orders?kind=custom&q=legacy')).json();
+    assert.deepEqual(search.orders.map((o) => o.id), ['LEGACY']);
+    assert.equal((await request('/admin/orders?kind=custom', undefined, { authenticated: false })).status, 401);
+  } finally { data().orders = previous; }
+});
+
 test.after(async () => {
   await save();
   await Promise.all([new Promise((resolve) => server.close(resolve)), new Promise((resolve) => carrierServer.close(resolve))]);

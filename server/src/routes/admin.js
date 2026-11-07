@@ -15,6 +15,7 @@ import { bookShipment, reconcileBooking, withShipmentLock } from '../booking.js'
 import { firebaseLogin } from '../firebaseLogin.js';
 import { firebaseAdminMode, firebaseAccessStore } from '../firebaseAdmin.js';
 import { ADMIN_COLLECTION } from '../firebaseAccess.js';
+import { customItems, orderType } from '../orderType.js';
 
 const router = Router();
 
@@ -81,6 +82,11 @@ router.post('/me/password', async (req, res, next) => {
 /* ---------- orders ---------- */
 
 const orderRow = (o) => ({
+  type: orderType(o),
+  customPieces: customItems(o).reduce((sum, i) => sum + i.qty, 0),
+  customProducts: customItems(o).map((i) => ({ name: i.name, qty: i.qty, detail: i.detail })),
+  designCount: Object.keys(o.designs || {}).length,
+  assetsDeletedAt: o.assetsDeletedAt || null,
   id: o.id, createdAt: o.createdAt, status: o.status, customer: { name: o.customer.name, phone: o.customer.phone, city: o.customer.city },
   pieces: o.items.reduce((n, i) => n + i.qty, 0), subtotal: o.subtotal, total: amount(o), discount: o.discount || 0, unpriced: o.unpriced, payment: o.payment, hasArtwork: Object.keys(o.designs || {}).length > 0, awb: o.shipment?.waybill || '', shipStage: o.shipment?.cancelled ? 'cancelled' : o.shipment?.stage || '',
 });
@@ -89,6 +95,9 @@ router.get('/orders', (req, res) => {
   const status = str(req.query.status, 20);
   const q = str(req.query.q, 80).toLowerCase();
   let list = data().orders;
+  const kind = str(req.query.kind, 20);
+  if (kind === 'custom') list = list.filter((o) => orderType(o) !== 'shop');
+  if (kind === 'shop' || kind === 'mixed') list = list.filter((o) => orderType(o) === kind);
   if (STATUSES.includes(status)) list = list.filter((o) => o.status === status);
   if (q) {
     list = list.filter((o) => [o.id, o.customer.name, o.customer.phone, o.customer.email, o.customer.city].some((v) => String(v).toLowerCase().includes(q)));

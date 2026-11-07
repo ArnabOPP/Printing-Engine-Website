@@ -75,6 +75,7 @@ function Login({ onDone }) {
 const links = [
   ['/admin', 'Dashboard', LayoutDashboard, true],
   ['/admin/orders', 'Orders', Package],
+  ['/admin/custom-orders', 'Custom orders', Shirt],
   ['/admin/customers', 'Customers', Users],
   ['/admin/home', 'Home page & content', Home],
   ['/admin/products', 'Shop products', ShoppingBag],
@@ -131,7 +132,8 @@ export default function AdminApp() {
       <main className="ad-main">
         <Routes>
           <Route index element={<Dashboard />} />
-          <Route path="orders" element={<Orders admin={admin} />} />
+          <Route path="orders" element={<Orders key="all" admin={admin} />} />
+          <Route path="custom-orders" element={<Orders key="custom" admin={admin} customOnly />} />
           <Route path="customers" element={<Customers />} />
           <Route path="catalog" element={<Catalog />} />
           <Route path="home" element={<HomePage />} />

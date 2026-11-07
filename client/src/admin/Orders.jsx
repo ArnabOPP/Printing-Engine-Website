@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Download, Search, Trash2, X } from 'lucide-react';
 import { api, fileUrl } from '../api.js';
@@ -11,16 +11,22 @@ const SIDE_LABEL = { front: 'Front', back: 'Back', left: 'Left sleeve', right: '
 // A customer's uploaded picture, fetched with the admin's login.
 function Artwork({ orderId, image }) {
   const [src, setSrc] = useState('');
+  const [error, setError] = useState('');
   useEffect(() => {
+    setSrc(''); setError('');
     if (!image.file) return undefined;
     let url = '';
-    fileUrl(`/api/admin/orders/${orderId}/files/${image.file}`).then((u) => { url = u; setSrc(u); }).catch(() => {});
-    return () => { if (url) URL.revokeObjectURL(url); };
+    let live = true;
+    fileUrl(`/api/admin/orders/${encodeURIComponent(orderId)}/files/${encodeURIComponent(image.file)}`).then((u) => {
+      if (!live) { URL.revokeObjectURL(u); return; }
+      url = u; setSrc(u);
+    }).catch((err) => { if (live) setError(err.status === 410 ? 'Removed after dispatch' : 'Could not load this file. Reopen the order to retry.'); });
+    return () => { live = false; if (url) URL.revokeObjectURL(url); };
   }, [orderId, image.file]);
   if (!image.file) return <span className="ad-muted">No file received</span>;
   return (
     <figure className="ad-art">
-      {src ? <img src={src} alt={image.name} /> : <div className="ad-art-ph" />}
+      {src ? <img src={src} alt={image.name} /> : error ? <p className="ad-error" role="alert">{error}</p> : <div className="ad-art-ph" aria-label="Loading artwork" />}
       <figcaption>
         <span title={image.name}>{image.name || 'image'}</span>
         {src && <a href={src} download={image.name || image.file} aria-label={`Download ${image.name}`}><Download size={14} /></a>}
@@ -57,12 +63,49 @@ function Layers({ orderId, design }) {
   );
 }
 
-function OrderPanel({ id, admin, onClose, onChanged }) {
+function CustomDesigns({ order: o }) {
+  if (!Object.keys(o.designs || {}).length) return <section><h3>Design files</h3><p className="ad-muted">No design files were attached to this order. Confirm the artwork with the customer before printing.</p></section>;
+  return Object.entries(o.designs || {}).map(([designId, design], index) => {
+    const item = o.items.find((i) => (i.designId || i.slug) === designId);
+    const cfg = item?.config;
+    return (
+      <section key={designId}>
+        <h3>Design {index + 1} · {cfg?.product || item?.name || designId}</h3>
+        {cfg && <dl className="ad-custom-specs">
+          {[['Print method', cfg.methodLabel || cfg.method], ['Material', cfg.material], ['Colour', cfg.colour], ['Audience', cfg.audience],
+            ['Quantity', item?.qty ?? cfg.quantity], ['Sizes', Object.entries(cfg.sizes || {}).map(([size, qty]) => `${size} × ${qty}`).join(', ')],
+            ['Sheet', cfg.sheet && `${cfg.sheet.label} (${cfg.sheet.w} × ${cfg.sheet.h} mm)`], ['Print area', design.mode === 'full' ? 'Full body' : 'Normal']]
+            .filter(([, value]) => value !== undefined && value !== null && value !== '').map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+        </dl>}
+        {o.assetsDeletedAt ? <p className="ad-muted">Artwork and mockups removed after courier-confirmed dispatch on {fmtTime(o.assetsDeletedAt)}.</p> : <Layers orderId={o.id} design={design} />}
+      </section>
+    );
+  });
+}
+
+function OrderPanel({ id, admin, onClose, onChanged, customFirst = false }) {
   const { data, error, loading, reload } = useLoad(`/api/admin/orders/${id}`);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const o = data?.order;
+  const panelRef = useRef(null);
+
+  useEffect(() => {
+    const previous = document.activeElement;
+    panelRef.current?.querySelector('button')?.focus();
+    const onKey = (event) => {
+      if (event.key === 'Escape') { event.preventDefault(); onClose(); }
+      if (event.key !== 'Tab') return;
+      const elements = [...(panelRef.current?.querySelectorAll('button:not(:disabled), a[href], input:not(:disabled), textarea:not(:disabled), select:not(:disabled)') || [])];
+      const first = elements[0];
+      const last = elements[elements.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('keydown', onKey); previous?.focus?.(); };
+  }, []); // onClose closes this mounted order drawer.
 
   useEffect(() => { if (o) setNote(o.adminNote || ''); }, [o?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -95,13 +138,14 @@ function OrderPanel({ id, admin, onClose, onChanged }) {
   return (
     <div className="ad-drawer-wrap" role="dialog" aria-modal="true" aria-label={`Order ${id}`}>
       <button type="button" className="ad-drawer-bg" aria-label="Close" onClick={onClose} />
-      <aside className="ad-drawer">
+      <aside className="ad-drawer" ref={panelRef}>
         <header>
           <div><h2>{id}</h2>{o && <small>{fmtTime(o.createdAt)}</small>}</div>
           <button type="button" className="ad-icon" onClick={onClose} aria-label="Close"><X size={18} /></button>
         </header>
         {!o ? <Loading error={error} loading={loading} /> : (
           <div className="ad-drawer-body">
+            {customFirst && <CustomDesigns order={o} />}
             <section>
               <h3>Status</h3>
               <div className="ad-statusrow">
@@ -146,16 +190,7 @@ function OrderPanel({ id, admin, onClose, onChanged }) {
 
             <ShippingSection order={o} owner={admin.role === 'owner'} onChanged={async () => { await reload(); onChanged(); }} />
 
-            {Object.entries(o.designs || {}).map(([slug, d]) => {
-              const cfg = o.items.find((i) => (i.designId || i.slug) === slug)?.config;
-              return (
-                <section key={slug}>
-                  <h3>Design · {cfg?.product || slug}</h3>
-                  {cfg && <p className="ad-muted">{[cfg.methodLabel, cfg.material, cfg.colour, cfg.sheet && `${cfg.sheet.label} sheet (${cfg.sheet.w} × ${cfg.sheet.h} mm)`, cfg.audience].filter(Boolean).join(' · ')}</p>}
-                  {o.assetsDeletedAt ? <p className="ad-muted">Artwork and mockups removed after courier-confirmed dispatch on {fmtTime(o.assetsDeletedAt)}.</p> : <Layers orderId={o.id} design={d} />}
-                </section>
-              );
-            })}
+            {!customFirst && Object.keys(o.designs || {}).length > 0 && <CustomDesigns order={o} />}
 
             {o.wishlist?.length > 0 && (
               <section>
@@ -183,13 +218,13 @@ function OrderPanel({ id, admin, onClose, onChanged }) {
   );
 }
 
-export default function Orders({ admin }) {
+export default function Orders({ admin, customOnly = false }) {
   const [params, setParams] = useSearchParams();
   const status = params.get('status') || '';
   const open = params.get('open') || '';
   const [q, setQ] = useState('');
   const [term, setTerm] = useState('');
-  const { data, error, loading, reload } = useLoad(`/api/admin/orders?status=${status}&q=${encodeURIComponent(term)}`);
+  const { data, error, loading, reload } = useLoad(`/api/admin/orders?status=${encodeURIComponent(status)}&q=${encodeURIComponent(term)}${customOnly ? '&kind=custom' : ''}`);
 
   useEffect(() => { const t = setTimeout(() => setTerm(q), 300); return () => clearTimeout(t); }, [q]);
 
@@ -197,9 +232,10 @@ export default function Orders({ admin }) {
 
   return (
     <>
-      <PageHead title="Orders">
+      <PageHead title={customOnly ? 'Custom orders' : 'Orders'}>
         <label className="ad-search"><Search size={15} /><input type="search" placeholder="Search order, name, phone, city" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search orders" /></label>
       </PageHead>
+      {customOnly && <p className="ad-muted">Review customer artwork, mockups and print specifications. Mixed orders appear here with their full order and shipment details.</p>}
       <DelhiveryTools />
       <div className="ad-filters" role="tablist" aria-label="Filter by status">
         <button type="button" role="tab" aria-selected={!status} className={`ad-chip${!status ? ' on' : ''}`} onClick={() => set('status', '')}>All</button>
@@ -208,20 +244,22 @@ export default function Orders({ admin }) {
         ))}
       </div>
 
-      <section className="ad-card flush">
-        {!data ? <Loading error={error} loading={loading} /> : data.orders.length === 0 ? <p className="ad-muted pad">No orders found.</p> : (
+      <section className="ad-card flush" aria-busy={loading}>
+        {error ? <div className="pad"><Loading error={error} /><button type="button" className="ad-btn" onClick={reload}>Try again</button></div> : !data ? <Loading loading={loading} /> : data.orders.length === 0 ? <p className="ad-muted pad">{customOnly ? 'No custom orders match these filters. New orders placed through the design studio will appear here.' : 'No orders found.'}</p> : (
           <div className="ad-scroll">
             <table className="ad-table hover">
-              <thead><tr><th>Order</th><th>Customer</th><th>Status</th><th>Pieces</th><th>Payment</th><th className="num">Amount</th></tr></thead>
+              <thead><tr><th>Order</th>{customOnly && <th>Custom items</th>}<th>Customer</th><th>Status</th><th>{customOnly ? 'Custom pieces' : 'Pieces'}</th><th>Payment</th><th className="num">Order amount</th><th /></tr></thead>
               <tbody>
                 {data.orders.map((o) => (
-                  <tr key={o.id} tabIndex={0} onClick={() => set('open', o.id)} onKeyDown={(e) => e.key === 'Enter' && set('open', o.id)}>
-                    <td><b>{o.id}</b><small>{fmtDate(o.createdAt)}</small></td>
+                  <tr key={o.id} onClick={() => set('open', o.id)}>
+                    <td><b>{o.id}</b><small>{fmtDate(o.createdAt)}</small>{o.type === 'mixed' && <small>Mixed order</small>}</td>
+                    {customOnly && <td>{o.customProducts?.length ? o.customProducts.map((i, index) => <div className="ad-custom-item" key={index}><b>{i.name} × {i.qty}</b>{i.detail && <small>{i.detail}</small>}</div>) : <small>Saved custom design</small>}</td>}
                     <td>{o.customer.name}<small>{o.customer.phone} · {o.customer.city}</small></td>
-                    <td><StatusBadge status={o.status} />{o.awb && <small className={o.shipStage === 'cancelled' ? '' : 'ad-mono'}>AWB {o.awb}</small>}{o.hasArtwork && <small>has artwork</small>}</td>
-                    <td>{o.pieces}</td>
+                    <td><StatusBadge status={o.status} />{o.awb && <small className={o.shipStage === 'cancelled' ? '' : 'ad-mono'}>AWB {o.awb}</small>}{o.hasArtwork && <small>{o.assetsDeletedAt ? 'Artwork removed after dispatch' : `${o.designCount || 1} saved design${o.designCount > 1 ? 's' : ''}`}</small>}</td>
+                    <td>{customOnly ? o.customPieces || '—' : o.pieces}</td>
                     <td>{PAY_LABEL[o.payment]}</td>
                     <td className="num">{rupees(o.total ?? o.subtotal)}{o.discount ? <small>coupon −{rupees(o.discount)}</small> : null}{o.unpriced ? <small className="ad-warn">+ unpriced</small> : null}</td>
+                    <td><button type="button" className="ad-btn" onClick={(event) => { event.stopPropagation(); set('open', o.id); }} aria-label={`Open ${customOnly ? 'custom ' : ''}order ${o.id}`}>{customOnly ? 'Review design' : 'Open order'}</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -231,7 +269,7 @@ export default function Orders({ admin }) {
         {data && <p className="ad-muted pad">Showing {data.orders.length} of {data.total}.</p>}
       </section>
 
-      {open && <OrderPanel key={open} id={open} admin={admin} onClose={() => set('open', '')} onChanged={reload} />}
+      {open && <OrderPanel key={open} id={open} admin={admin} customFirst={customOnly} onClose={() => set('open', '')} onChanged={reload} />}
     </>
   );
 }

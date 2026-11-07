@@ -4,6 +4,8 @@
 
 Delivery deployment and operation are documented in [DELIVERY-DEPLOYMENT.md](DELIVERY-DEPLOYMENT.md). Online orders now require an admin-confirmed payment receipt before prepaid shipment booking. Ambiguous booking attempts must be reconciled before retrying.
 
+The **Custom orders** sidebar entry (`/admin/custom-orders`) lists customer customisations, including mixed baskets. Review design files and mockups first, then material, colour, print method, sizes and quantities. Status, payment confirmation, notes and shipping update the same order shown in **Orders**. The displayed order amount includes every item in a mixed basket. Artwork removed after dispatch is explicitly labelled, and the custom order remains in the list.
+
 The admin panel lives at **`/admin`** on the website. It is not linked from anywhere and is marked `noindex`, but
 that is only to keep it tidy. What actually keeps it private is the server: every admin request needs a signed-in
 admin (a hashed password, a signed `httpOnly` cookie, rate-limited sign-in). Without signing in, `/admin` shows only a sign-in box.

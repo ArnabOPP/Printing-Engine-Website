@@ -50,6 +50,14 @@
 .ad-search { display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid var(--a-line); border-radius: 10px; background: #0e0e11; min-width: 280px; }
 .ad-search input { border: 0; background: none; padding: 9px 0; }
 .ad-search input:focus { outline: none; }
+.ad-custom-specs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; margin: 14px 0; }
+.ad-custom-specs div { min-width: 0; }
+.ad-custom-specs dt { color: var(--a-muted); font-size: 12px; }
+.ad-custom-specs dd { margin: 3px 0 0; font-size: 14px; overflow-wrap: anywhere; }
+.ad-custom-item { max-width: 320px; margin-bottom: 8px; }
+.ad-custom-item:last-child { margin-bottom: 0; }
+.ad .ad-btn:focus-visible { outline: 2px solid var(--a-lime); outline-offset: 3px; }
+@media (max-width: 480px) { .ad-custom-specs { grid-template-columns: 1fr; } }
 
 /* cards, tiles */
 .ad-card { border: 1px solid var(--a-line); border-radius: 16px; background: var(--a-card); padding: 18px; margin-bottom: 16px; }
