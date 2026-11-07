@@ -11,6 +11,8 @@ import { ShapeSvg, shapeList } from '../studio/shapes.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { quote, sheetQuote, rupees, fmtRate, layerSize, PHOTO_WIDTH_IN } from '../studio/pricing.js';
 import { garmentFor } from '../studio/garments.js';
+import { flushSync } from 'react-dom';
+import { saveDesignAsset } from '../studio/designAssets.js';
 
 /* ---------- configuration ---------- */
 
@@ -368,6 +370,14 @@ function Studio({ product, cfg, slug }) {
   const [notice, setNotice] = useState('');
   const [saveNote, setSaveNote] = useState('');
   const [added, setAdded] = useState(false);
+  const [capturing, setCapturing] = useState(false);
+  const capturingRef = useRef(false);
+  const stageRef = useRef(null);
+  useEffect(() => {
+    const layout = stageRef.current?.closest('.st-layout');
+    if (layout) layout.inert = capturing;
+    return () => { if (layout) layout.inert = false; };
+  }, [capturing]);
   const [askEmpty, setAskEmpty] = useState(false);
 
   const areaRef = useRef(null);
@@ -515,6 +525,7 @@ function Studio({ product, cfg, slug }) {
   // Normal print: artwork can never leave the print area. After every change, shrink anything that is
   // too big to fit and nudge the rest back inside (rotation is taken into account).
   useLayoutEffect(() => {
+    if (capturingRef.current) return;
     if (free) return;
     const el = areaRef.current;
     if (!el) return;
@@ -550,6 +561,7 @@ function Studio({ product, cfg, slug }) {
 
   useEffect(() => {
     const onKey = (e) => {
+      if (capturingRef.current) return;
       const t = e.target;
       if (t && (['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName) || t.isContentEditable)) return;
       const mod = e.ctrlKey || e.metaKey;
@@ -573,8 +585,29 @@ function Studio({ product, cfg, slug }) {
   });
 
   /* ----- order ----- */
-  const addDesignToCart = () => {
+  const addDesignToCart = async () => {
+    if (capturingRef.current) return;
     if (!totalLayers && !askEmpty) { setAskEmpty(true); return; }
+    capturingRef.current = true;
+    setCapturing(true);
+    const previousSide = side;
+    const snapshot = JSON.parse(JSON.stringify(design));
+    try {
+    const { toPng } = await import('html-to-image');
+    await document.fonts.ready;
+    const mockups = {};
+    for (const view of (isTee ? sides : ['front'])) {
+      if (!snapshot[view].length && totalLayers) continue;
+      flushSync(() => setSide(view));
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      await Promise.all([...stageRef.current.querySelectorAll('img')].map((img) => img.decode()));
+      mockups[view] = await toPng(stageRef.current, {
+        pixelRatio: 2, backgroundColor: '#ffffff',
+        filter: (node) => !node.classList?.contains('st-guide') && !node.classList?.contains('st-chrome') && !node.classList?.contains('st-empty'),
+      });
+    }
+    const designId = crypto.randomUUID();
+    await saveDesignAsset(designId, { ...snapshot, mockups });
     const bits = [
       cfg.methodLabel, cfg.material, cfg.colour, cfg.audience,
       sheet && `${sheet.label} sheet`,
@@ -590,9 +623,17 @@ function Studio({ product, cfg, slug }) {
       slug,
       config: cfg,
       unique: true, // every design is its own line
+      designId,
     });
     setAdded(true);
     setAskEmpty(false);
+    } catch {
+      setNotice('We could not save your design preview. Please try again. Your item has not been added to the cart.');
+    } finally {
+      setSide(previousSide);
+      setCapturing(false);
+      capturingRef.current = false;
+    }
   };
 
   const price = priced || sheetPriced; // whichever estimate applies to this product
@@ -715,7 +756,7 @@ function Studio({ product, cfg, slug }) {
           {notice && <p className="st-alert" role="alert"><AlertTriangle size={15} /> {notice}</p>}
 
           <div className="st-canvas" onPointerDown={() => setSelectedId(null)}>
-            <div className={`st-stage${zoom ? ' zoomed' : ''}`} style={{ width: `min(100%, calc(74vh * ${aspect}))`, aspectRatio: String(aspect) }}>
+            <div ref={stageRef} className={`st-stage${zoom ? ' zoomed' : ''}`} style={{ width: `min(100%, calc(74vh * ${aspect}))`, aspectRatio: String(aspect) }}>
               <div
                 className="st-zoom"
                 style={zoom ? { transform: `translate(${50 - zoom.z * zoom.cx}%, ${50 - zoom.z * zoom.cy}%) scale(${zoom.z})`, '--z': zoom.z } : undefined}
@@ -1003,8 +1044,8 @@ function Studio({ product, cfg, slug }) {
             ) : (
               <>
                 {askEmpty && <p className="st-alert" role="alert"><AlertTriangle size={15} /> You haven’t added a design yet. Press again to add the plain product.</p>}
-                <button type="button" className="btn btn-lime-solid opt-go" onClick={addDesignToCart}>
-                  <ShoppingBag size={17} /> {askEmpty ? 'Add without a design' : price ? `Add to cart · ${rupees(price.total)}` : 'Add to cart'}
+                <button type="button" className="btn btn-lime-solid opt-go" disabled={capturing} onClick={addDesignToCart}>
+                  <ShoppingBag size={17} /> {capturing ? 'Saving your design…' : askEmpty ? 'Add without a design' : price ? `Add to cart · ${rupees(price.total)}` : 'Add to cart'}
                 </button>
               </>
             )}

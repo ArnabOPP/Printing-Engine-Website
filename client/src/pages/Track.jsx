@@ -25,7 +25,9 @@ function stepOf(order, shipment) {
 
 const headline = (order, shipment, step) => {
   if (order.status === 'cancelled') return 'This order was cancelled.';
-  if (shipment?.stage === 'returned') return 'The parcel is being returned to us. We will contact you.';
+  if (shipment?.stage === 'returning') return 'The parcel is being returned to us. We will contact you.';
+  if (shipment?.stage === 'returned') return 'The parcel was returned to us. We will contact you.';
+  if (shipment?.stage === 'cancelled') return 'This shipment was cancelled. We will contact you about the next steps.';
   return ({
     0: 'We have your order and will confirm it shortly.', 1: 'Your order is confirmed.', 2: 'Your order is being printed.',
     3: 'Printed and packed. Waiting for the courier.', 4: 'Your parcel is on its way.', 5: 'Your parcel is out for delivery today.', 6: 'Delivered. Thank you!',
@@ -130,7 +132,7 @@ export default function Track() {
                 ))}
               </ol>
             )}
-            {s?.expectedDelivery && step < 6 && !cancelled && <p className="tk-eta"><Truck size={15} /> Expected delivery <b>{fmt(s.expectedDelivery, false)}</b></p>}
+            {s?.expectedDelivery && step < 6 && !cancelled && !['returning', 'returned', 'cancelled'].includes(s.stage) && <p className="tk-eta"><Truck size={15} /> Expected delivery <b>{fmt(s.expectedDelivery, false)}</b></p>}
             {result.note && <p className="co-note">{result.note}</p>}
           </section>
 

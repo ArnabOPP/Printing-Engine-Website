@@ -30,7 +30,7 @@ export function CartProvider({ children }) {
       const key = item.key || `${item.name}|${item.detail}|${item.unit}`;
       const hit = !item.unique && cur.find((i) => i.key === key);
       if (hit) return cur.map((i) => (i === hit ? { ...i, qty: i.qty + qty } : i));
-      return [...cur, { id: uid(), key, name: item.name, detail: item.detail || '', img: item.img || '', qty, unit: item.unit ?? null, slug: item.slug || '', config: item.config || null }];
+      return [...cur, { id: uid(), key, name: item.name, detail: item.detail || '', img: item.img || '', qty, unit: item.unit ?? null, slug: item.slug || '', config: item.config || null, designId: item.designId || '' }];
     });
   }, []);
 

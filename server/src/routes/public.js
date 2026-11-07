@@ -3,8 +3,10 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { UPLOAD_DIR, audit, data, save } from '../store.js';
+import { audit, data, save } from '../store.js';
+import { saveArtwork, deleteArtwork, r2Enabled } from '../files.js';
 import { couponResult } from '../content.js';
+import { checkDestination } from '../delhivery.js';
 
 export const catalogRouter = Router();
 export const contentRouter = Router();
@@ -72,6 +74,7 @@ function cleanItems(items) {
     return {
       name: str(i?.name, 120) || 'Item', detail: str(i?.detail, 300), img: str(i?.img, 200), qty, unit: unit == null ? null : Math.round(unit * 100) / 100,
       slug: str(i?.slug, 80), config: smallObject(i?.config),
+      designId: str(i?.designId, 64),
     };
   });
 }
@@ -79,14 +82,14 @@ function cleanItems(items) {
 const DATA_URL = /^data:image\/(png|jpeg|webp|gif|svg\+xml);base64,([A-Za-z0-9+/=]+)$/;
 const EXT = { png: 'png', jpeg: 'jpg', webp: 'webp', gif: 'gif', 'svg+xml': 'svg' };
 
-// Keeps the design's layers, and saves each uploaded picture as a file instead of leaving it inside the order.
-function cleanDesigns(designs, orderId) {
+// Keeps the design's layers. Each uploaded picture is taken out of the order and added to `uploads` to be saved as a file.
+function cleanDesigns(designs, uploads) {
   if (!designs || typeof designs !== 'object') return {};
-  const out = {};
+  const out = Object.create(null);
   let files = 0;
   let bytes = 0;
-  const dir = path.join(UPLOAD_DIR, orderId);
-  for (const [slug, d] of Object.entries(designs).slice(0, 10)) {
+  for (const [slug, d] of Object.entries(designs).slice(0, 30)) {
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(slug)) throw bad('Invalid design reference.');
     const sides = {};
     for (const side of ['front', 'back', 'left', 'right']) {
       const layers = Array.isArray(d?.[side]) ? d[side].slice(0, 60) : [];
@@ -98,27 +101,40 @@ function cleanDesigns(designs, orderId) {
           const buf = Buffer.from(m[2], 'base64');
           bytes += buf.length;
           if (buf.length > 15 * 1024 * 1024 || bytes > 45 * 1024 * 1024 || files >= 40) throw bad('The artwork in this order is too large.');
-          fs.mkdirSync(dir, { recursive: true });
           const name = `${crypto.randomBytes(5).toString('hex')}.${EXT[m[1]]}`;
-          fs.writeFileSync(path.join(dir, name), buf);
+          uploads.push({ name, buf });
           files += 1;
           layer.image = { name: str(layer.image.name, 120), nw: layer.image.nw, ratio: layer.image.ratio, file: name };
         }
         return layer;
       });
     }
-    out[str(slug, 80)] = { ...sides, mode: d?.mode === 'full' ? 'full' : 'normal' };
+    const mockups = {};
+    for (const side of ['front', 'back', 'left', 'right']) {
+      if (!d?.mockups?.[side]) continue;
+      const m = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(String(d.mockups[side]));
+      if (!m) throw bad('A design preview could not be read. Please add the product again.');
+      const buf = Buffer.from(m[1], 'base64');
+      bytes += buf.length;
+      if (!buf.length || buf.length > 8 * 1024 * 1024 || bytes > 45 * 1024 * 1024 || files >= 100) throw bad('The artwork and previews in this order are too large.');
+      const name = `mockup-${crypto.randomBytes(8).toString('hex')}.png`;
+      uploads.push({ name, buf });
+      files += 1;
+      mockups[side] = { file: name, name: `${side}-mockup.png` };
+    }
+    out[slug] = { ...sides, mockups, mode: d?.mode === 'full' ? 'full' : 'normal' };
   }
   return out;
 }
 
-ordersRouter.post('/', orderLimit, (req, res, next) => {
+ordersRouter.post('/', orderLimit, async (req, res, next) => {
   try {
     const body = req.body || {};
     const id = `PE-${Date.now().toString(36).toUpperCase().slice(-6)}${crypto.randomBytes(1).toString('hex').toUpperCase()}`;
     const customer = cleanCustomer(body.customer);
     const items = cleanItems(body.items);
     const payment = body.payment === 'upi' ? 'upi' : 'cod';
+    await checkDestination(customer.pin, payment);
     const subtotal = Math.round(items.reduce((n, i) => n + (i.unit == null ? 0 : i.unit * i.qty), 0) * 100) / 100; // always worked out here
     // A coupon is checked again here: the amount is never taken from the browser.
     const code = str(body.coupon, 30).toUpperCase();
@@ -132,16 +148,37 @@ ordersRouter.post('/', orderLimit, (req, res, next) => {
       coupon = { code: found.code, type: found.type, value: found.value, discount };
     }
     const wishlist = Array.isArray(body.wishlist) ? body.wishlist.slice(0, 30).map((w) => ({ name: str(w?.name, 120), href: str(w?.href, 200) })) : [];
-    const designs = cleanDesigns(body.designs, id);
+    const uploads = [];
+    const designs = cleanDesigns(body.designs, uploads);
+    for (const item of items) {
+      if (item.designId && (!designs[item.designId] || !Object.keys(designs[item.designId].mockups).length)) throw bad('A custom product is missing its design preview. Please add it again.');
+    }
+    if (uploads.length && process.env.R2_REQUIRED === 'true' && !r2Enabled) {
+      throw Object.assign(new Error('Custom design storage is not configured yet. Please try again later.'), { status: 503, expose: true });
+    }
+    // The artwork is stored before the order is accepted, so an order never points at a file that was not saved.
+    try {
+      const results = await Promise.allSettled(uploads.map((u) => saveArtwork(id, u.name, u.buf)));
+      if (results.some((r) => r.status === 'rejected')) throw new Error('One or more design files could not be saved.');
+    } catch (err) {
+      console.error('Could not store artwork:', err?.message || err);
+      await deleteArtwork(id).catch((cleanupError) => console.error('Could not remove incomplete artwork:', cleanupError.message));
+      throw Object.assign(new Error('We could not save your artwork just now. Please try again in a minute.'), { status: 503, expose: true });
+    }
     const now = new Date().toISOString();
     const order = {
       id, createdAt: now, status: 'placed', customer, payment, items, designs, subtotal, coupon, discount, total: Math.round((subtotal - discount) * 100) / 100, unpriced: items.filter((i) => i.unit == null).length,
-      wishlist, adminNote: '', history: [{ at: now, status: 'placed', by: 'customer' }],
+      wishlist, paymentStatus: payment === 'cod' ? 'cod' : 'pending', assetStorage: r2Enabled ? 'r2' : 'local', adminNote: '', history: [{ at: now, status: 'placed', by: 'customer' }],
     };
     data().orders.unshift(order);
     if (found && coupon) found.used += 1;
     audit('customer', 'order.placed', `${id} · ${customer.name}`);
-    save();
+    try { await save(); } catch (err) {
+      data().orders = data().orders.filter((o) => o !== order);
+      if (found && coupon) found.used -= 1;
+      await deleteArtwork(id).catch((cleanupError) => console.error('Incomplete order artwork cleanup failed:', cleanupError.message));
+      throw Object.assign(new Error('Your order could not be saved. Please try again shortly.'), { status: 503, expose: true });
+    }
     res.status(201).json({ id, placedAt: now, subtotal, discount, total: order.total, unpriced: order.unpriced });
   } catch (err) {
     next(err);

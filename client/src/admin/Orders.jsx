@@ -31,10 +31,13 @@ function Artwork({ orderId, image }) {
 
 function Layers({ orderId, design }) {
   const sides = ['front', 'back', 'left', 'right'].filter((s) => design[s]?.length);
-  if (!sides.length) return <p className="ad-muted">No artwork on this design.</p>;
+  if (!sides.length && !Object.keys(design.mockups || {}).length) return <p className="ad-muted">No artwork on this design.</p>;
   return (
     <>
       {design.mode === 'full' && <p className="ad-pill">Full body print</p>}
+      {Object.entries(design.mockups || {}).map(([side, image]) => (
+        <div key={side}><h4>{SIDE_LABEL[side]} mockup</h4><Artwork orderId={orderId} image={image} /></div>
+      ))}
       {sides.map((s) => (
         <div key={s} className="ad-side-block">
           <h4>{SIDE_LABEL[s]}</h4>
@@ -141,15 +144,15 @@ function OrderPanel({ id, admin, onClose, onChanged }) {
               <p className="ad-muted">Prices are the customer’s estimate at checkout. Confirm the final price and shipping with them.</p>
             </section>
 
-            <ShippingSection order={o} onChanged={async () => { await reload(); onChanged(); }} />
+            <ShippingSection order={o} owner={admin.role === 'owner'} onChanged={async () => { await reload(); onChanged(); }} />
 
             {Object.entries(o.designs || {}).map(([slug, d]) => {
-              const cfg = o.items.find((i) => i.slug === slug)?.config;
+              const cfg = o.items.find((i) => (i.designId || i.slug) === slug)?.config;
               return (
                 <section key={slug}>
                   <h3>Design · {cfg?.product || slug}</h3>
                   {cfg && <p className="ad-muted">{[cfg.methodLabel, cfg.material, cfg.colour, cfg.sheet && `${cfg.sheet.label} sheet (${cfg.sheet.w} × ${cfg.sheet.h} mm)`, cfg.audience].filter(Boolean).join(' · ')}</p>}
-                  <Layers orderId={o.id} design={d} />
+                  {o.assetsDeletedAt ? <p className="ad-muted">Artwork and mockups removed after courier-confirmed dispatch on {fmtTime(o.assetsDeletedAt)}.</p> : <Layers orderId={o.id} design={d} />}
                 </section>
               );
             })}

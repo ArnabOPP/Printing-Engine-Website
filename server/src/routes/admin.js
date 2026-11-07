@@ -6,10 +6,12 @@ import {
   checkLogin, endSession, hashPassword, passwordProblem, publicAdmin, requireAdmin, requireOwner, startSession,
 } from '../auth.js';
 import crypto from 'node:crypto';
-import { PUBLIC_DIR, UPLOAD_DIR, audit, data, newId, save } from '../store.js';
+import { PUBLIC_DIR, audit, data, newId, save } from '../store.js';
+import { deleteArtwork, readArtwork } from '../files.js';
 import { cleanContent, cleanCoupon } from '../content.js';
 import * as delhivery from '../delhivery.js';
-import { applyTracking, pollActive, refreshOrder } from '../shipping.js';
+import { pollActive, refreshOrder } from '../shipping.js';
+import { bookShipment, reconcileBooking, withShipmentLock } from '../booking.js';
 
 const router = Router();
 
@@ -31,7 +33,7 @@ router.post('/login', loginLimit, async (req, res, next) => {
     if (!admin) return res.status(401).json({ error: 'Wrong email or password.' });
     admin.lastLoginAt = new Date().toISOString();
     audit(admin.email, 'login');
-    save();
+    await save();
     startSession(res, admin);
     return res.json({ admin: publicAdmin(admin) });
   } catch (err) {
@@ -55,7 +57,7 @@ router.post('/me/password', async (req, res, next) => {
     req.admin.passHash = await hashPassword(pw);
     req.admin.tokenVersion = (req.admin.tokenVersion || 0) + 1; // signs out every other session
     audit(req.admin.email, 'password.changed');
-    save();
+    await save();
     startSession(res, req.admin);
     res.json({ ok: true });
   } catch (err) {
@@ -87,37 +89,81 @@ const findOrder = (id) => {
   return o;
 };
 
-router.get('/orders/:id', (req, res, next) => {
+router.get('/orders/:id', async (req, res, next) => {
   try { res.json({ order: findOrder(req.params.id) }); } catch (err) { next(err); }
 });
 
-router.patch('/orders/:id', (req, res, next) => {
+router.post('/orders/:id/payment', async (req, res, next) => {
   try {
     const o = findOrder(req.params.id);
-    const { status, adminNote } = req.body || {};
-    if (status !== undefined) {
-      if (!STATUSES.includes(status)) throw bad('Unknown status.');
-      if (status !== o.status) {
-        o.status = status;
-        o.history.push({ at: new Date().toISOString(), status, by: req.admin.email });
-        audit(req.admin.email, 'order.status', `${o.id} → ${status}`);
+    await withShipmentLock(o, async () => {
+      if (o.payment === 'cod' || o.status === 'cancelled') throw bad('This order cannot be marked as prepaid.');
+      if (o.paymentStatus === 'paid') { await save(); return; }
+      const paid = Number(req.body?.amount);
+      const reference = str(req.body?.reference, 120);
+      if (!Number.isFinite(paid) || paid <= 0 || paid > 1_000_000 || reference.length < 4) throw bad('Enter the final amount received and the payment reference (at least 4 characters).');
+      const previous = { paymentStatus: o.paymentStatus, confirmedTotal: o.confirmedTotal, paymentReceipt: o.paymentReceipt };
+      o.paymentStatus = 'paid';
+      o.confirmedTotal = Math.round(paid * 100) / 100;
+      o.paymentReceipt = { amount: o.confirmedTotal, reference, confirmedBy: req.admin.email, confirmedAt: new Date().toISOString() };
+      audit(req.admin.email, 'payment.confirmed', o.id);
+      try { await save(); } catch (err) { Object.assign(o, previous); throw err; }
+    });
+    res.json({ order: o });
+  } catch (err) { next(err); }
+});
+
+router.post('/orders/:id/shipment/reconcile', async (req, res, next) => {
+  try { res.json(await reconcileBooking(findOrder(req.params.id), req.admin.email)); }
+  catch (err) { next(err); }
+});
+
+router.post('/orders/:id/shipment/reset-attempt', requireOwner, async (req, res, next) => {
+  try {
+    const o = findOrder(req.params.id);
+    await withShipmentLock(o, async () => {
+      if (o.shipment && !o.shipment.cancelled) throw bad('This order already has a shipment.');
+      if (req.body?.reviewedNoShipment !== true) throw bad('Confirm in the Delhivery portal that no shipment exists before resetting.');
+      if (await delhivery.findShipment(o.id)) throw bad('Delhivery found an existing shipment. Reconcile it instead.');
+      o.bookingAttempt = { state: 'reset', reviewedBy: req.admin.email, reviewedAt: new Date().toISOString() };
+      audit(req.admin.email, 'shipment.booking-reset', o.id);
+      await save();
+    });
+    res.json({ order: o });
+  } catch (err) { next(err); }
+});
+
+router.patch('/orders/:id', async (req, res, next) => {
+  try {
+    const o = findOrder(req.params.id);
+    await withShipmentLock(o, async () => {
+      const { status, adminNote } = req.body || {};
+      if (status !== undefined) {
+        if (!STATUSES.includes(status)) throw bad('Unknown status.');
+        if (status !== o.status) {
+          o.status = status;
+          o.history.push({ at: new Date().toISOString(), status, by: req.admin.email });
+          audit(req.admin.email, 'order.status', `${o.id} → ${status}`);
+        }
       }
-    }
-    if (adminNote !== undefined) { o.adminNote = str(adminNote, 2000); audit(req.admin.email, 'order.note', o.id); }
-    save();
+      if (adminNote !== undefined) { o.adminNote = str(adminNote, 2000); audit(req.admin.email, 'order.note', o.id); }
+      await save();
+    });
     res.json({ order: o });
   } catch (err) {
     next(err);
   }
 });
 
-router.delete('/orders/:id', requireOwner, (req, res, next) => {
+router.delete('/orders/:id', requireOwner, async (req, res, next) => {
   try {
     const o = findOrder(req.params.id);
-    data().orders = data().orders.filter((x) => x !== o);
-    fs.rmSync(path.join(UPLOAD_DIR, o.id), { recursive: true, force: true });
-    audit(req.admin.email, 'order.deleted', o.id);
-    save();
+    await withShipmentLock(o, async () => {
+      await deleteArtwork(o.id);
+      data().orders = data().orders.filter((x) => x !== o);
+      audit(req.admin.email, 'order.deleted', o.id);
+      await save();
+    });
     res.json({ ok: true });
   } catch (err) {
     next(err);
@@ -125,15 +171,16 @@ router.delete('/orders/:id', requireOwner, (req, res, next) => {
 });
 
 // Customers' uploaded artwork. Only signed-in admins can open it, and it is always served as a plain download-safe image.
-router.get('/orders/:id/files/:name', (req, res, next) => {
+router.get('/orders/:id/files/:name', async (req, res, next) => {
   try {
     const o = findOrder(req.params.id);
     const name = path.basename(req.params.name);
-    const known = Object.values(o.designs || {}).some((d) => ['front', 'back', 'left', 'right'].some((s) => (d[s] || []).some((l) => l.image?.file === name)));
-    const file = path.join(UPLOAD_DIR, o.id, name);
-    if (!known || !fs.existsSync(file)) throw bad('File not found.', 404);
-    res.set({ 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox", 'Cache-Control': 'private, max-age=300' });
-    res.sendFile(file);
+    if (o.assetsDeletedAt) throw bad('Artwork was removed after courier-confirmed dispatch.', 410);
+    const known = Object.values(o.designs || {}).some((d) => ['front', 'back', 'left', 'right'].some((s) => d.mockups?.[s]?.file === name || (d[s] || []).some((l) => l.image?.file === name)));
+    const file = known ? await readArtwork(o.id, name) : null;
+    if (!file) throw bad('File not found.', 404);
+    res.set({ 'Content-Type': file.type, 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox", 'Cache-Control': 'private, max-age=300' });
+    res.send(file.body);
   } catch (err) {
     next(err);
   }
@@ -173,9 +220,11 @@ router.post('/shipping/pickup', async (req, res, next) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw bad('Choose the pickup date.');
     if (!/^\d{2}:\d{2}(:\d{2})?$/.test(time)) throw bad('Choose the pickup time.');
     if (!(count >= 1 && count <= 500)) throw bad('Enter how many parcels (1 to 500).');
+    const when = Date.parse(`${date}T${time.length === 5 ? `${time}:00` : time}+05:30`);
+    if (!Number.isFinite(when) || when <= Date.now() || Number(time.slice(0, 2)) > 23 || Number(time.slice(3, 5)) > 59) throw bad('Choose a valid future pickup date and time in India time.');
     const r = await delhivery.requestPickup({ date, time: time.length === 5 ? `${time}:00` : time, count });
     audit(req.admin.email, 'pickup.requested', `${date} ${time} · ${count} parcels`);
-    save();
+    await save();
     res.json({ ok: true, id: r.id });
   } catch (err) {
     next(err);
@@ -195,28 +244,11 @@ const nums = (b) => {
 router.post('/orders/:id/shipment', async (req, res, next) => {
   try {
     const o = findOrder(req.params.id);
-    if (o.shipment && !o.shipment.cancelled) throw bad('This order already has a shipment.');
-    if (o.status === 'cancelled') throw bad('This order is cancelled.');
-    const now = new Date().toISOString();
-    let shipment;
-    if (req.body?.mode === 'manual') {
-      const waybill = str(req.body?.waybill, 30);
-      if (!/^[A-Za-z0-9-]{6,30}$/.test(waybill)) throw bad('Enter the AWB / waybill number from Delhivery.');
-      shipment = { carrier: 'delhivery', waybill, createdVia: 'manual', stage: 'booked', status: 'Booked', events: [], createdAt: now };
-    } else {
-      const parcel = { ...nums(req.body || {}), description: str(req.body?.description, 200), declaredValue: req.body?.declaredValue ? Number(req.body.declaredValue) : undefined };
-      let codAmount;
-      if (o.payment === 'cod') {
-        codAmount = req.body?.codAmount === undefined || req.body.codAmount === '' ? (o.unpriced ? NaN : (o.total ?? o.subtotal)) : Number(req.body.codAmount);
-        if (!Number.isFinite(codAmount) || codAmount < 0) throw bad('This order has items without a price. Enter the amount to collect on delivery.');
-      }
-      const { waybill } = await delhivery.createShipment({ order: o, parcel, codAmount });
-      shipment = { carrier: 'delhivery', waybill, createdVia: 'api', stage: 'booked', status: 'Manifested', events: [], parcel: { weight: parcel.weight, length: parcel.length, width: parcel.width, height: parcel.height }, codAmount: codAmount ?? 0, createdAt: now };
-    }
-    o.shipment = shipment;
-    applyTracking(o, { stage: 'booked' });
-    audit(req.admin.email, 'shipment.created', `${o.id} · AWB ${shipment.waybill} (${shipment.createdVia})`);
-    await save();
+    const manual = req.body?.mode === 'manual';
+    if (manual && !/^[A-Za-z0-9-]{6,30}$/.test(str(req.body?.waybill, 30))) throw bad('Enter the AWB from the courier portal.');
+    const parcel = manual ? null : { ...nums(req.body || {}), description: str(req.body?.description, 200), declaredValue: o.confirmedTotal ?? o.total ?? o.subtotal };
+    const codAmount = o.payment === 'cod' ? (req.body?.codAmount === undefined || req.body.codAmount === '' ? (o.unpriced ? NaN : (o.total ?? o.subtotal)) : Number(req.body.codAmount)) : undefined;
+    await bookShipment(o, { manualWaybill: manual ? str(req.body?.waybill, 30) : undefined, parcel, codAmount, by: req.admin.email });
     if (delhivery.config.configured) { try { await refreshOrder(o); } catch { /* tracking appears once Delhivery has the parcel */ } }
     res.status(201).json({ order: o });
   } catch (err) {
@@ -238,12 +270,16 @@ router.post('/orders/:id/shipment/refresh', async (req, res, next) => {
 router.post('/orders/:id/shipment/cancel', async (req, res, next) => {
   try {
     const o = findOrder(req.params.id);
-    const s = o.shipment;
-    if (!s?.waybill || s.cancelled) throw bad('There is no active shipment to cancel.');
-    if (s.createdVia === 'api') await delhivery.cancelShipment(s.waybill);
-    s.cancelled = true;
-    audit(req.admin.email, 'shipment.cancelled', `${o.id} · AWB ${s.waybill}`);
-    save();
+    await withShipmentLock(o, async () => {
+      const s = o.shipment;
+      if (!s?.waybill || s.cancelled) throw bad('There is no active shipment to cancel.');
+      if (['delivered', 'returned', 'returning'].includes(s.stage)) throw bad('A completed or returning shipment cannot be cancelled.');
+      await delhivery.cancelShipment(s.waybill);
+      s.cancelled = true;
+      s.stage = 'cancelled';
+      audit(req.admin.email, 'shipment.cancelled', `${o.id} · AWB ${s.waybill}`);
+      await save();
+    });
     res.json({ order: o });
   } catch (err) {
     next(err);
@@ -253,7 +289,7 @@ router.post('/orders/:id/shipment/cancel', async (req, res, next) => {
 router.get('/orders/:id/shipment/label', async (req, res, next) => {
   try {
     const o = findOrder(req.params.id);
-    if (!o.shipment?.waybill) throw bad('This order has no shipment.');
+    if (!o.shipment?.waybill || o.shipment.cancelled) throw bad('This order has no active shipment.');
     const { pdf } = await delhivery.label(o.shipment.waybill);
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="label-${o.shipment.waybill}.pdf"`, 'X-Content-Type-Options': 'nosniff' });
     res.send(pdf);
@@ -360,11 +396,11 @@ function cleanCatalog(c) {
 
 router.get('/catalog', (req, res) => res.json({ catalog: data().catalog || {} }));
 
-router.put('/catalog', (req, res, next) => {
+router.put('/catalog', async (req, res, next) => {
   try {
     data().catalog = cleanCatalog(req.body?.catalog || {});
     audit(req.admin.email, 'catalog.updated');
-    save();
+    await save();
     res.json({ catalog: data().catalog });
   } catch (err) {
     next(err);
@@ -375,11 +411,11 @@ router.put('/catalog', (req, res, next) => {
 
 router.get('/content', (req, res) => res.json({ content: data().content || {} }));
 
-router.put('/content', (req, res, next) => {
+router.put('/content', async (req, res, next) => {
   try {
     data().content = cleanContent(req.body?.content || {});
     audit(req.admin.email, 'content.updated');
-    save();
+    await save();
     res.json({ content: data().content });
   } catch (err) {
     next(err);
@@ -388,7 +424,7 @@ router.put('/content', (req, res, next) => {
 
 // Pictures for the website (products, banners, reviews). They are public once uploaded, so only safe image types are allowed.
 const IMG = /^data:image\/(png|jpeg|webp|gif);base64,([A-Za-z0-9+/=]+)$/;
-router.post('/uploads', (req, res, next) => {
+router.post('/uploads', async (req, res, next) => {
   try {
     const m = IMG.exec(String(req.body?.data || ''));
     if (!m) throw bad('Upload a PNG, JPG, WebP or GIF picture.');
@@ -397,7 +433,7 @@ router.post('/uploads', (req, res, next) => {
     const name = `${Date.now().toString(36)}${crypto.randomBytes(4).toString('hex')}.${m[1] === 'jpeg' ? 'jpg' : m[1]}`;
     fs.writeFileSync(path.join(PUBLIC_DIR, name), buf);
     audit(req.admin.email, 'upload', name);
-    save();
+    await save();
     res.status(201).json({ url: `/uploads/${name}` });
   } catch (err) {
     next(err);
@@ -408,20 +444,20 @@ router.post('/uploads', (req, res, next) => {
 
 router.get('/coupons', (req, res) => res.json({ coupons: data().coupons }));
 
-router.post('/coupons', (req, res, next) => {
+router.post('/coupons', async (req, res, next) => {
   try {
     const c = cleanCoupon(req.body || {});
     if (data().coupons.some((x) => x.code === c.code)) throw bad('A coupon with this code already exists.');
     data().coupons.unshift(c);
     audit(req.admin.email, 'coupon.created', c.code);
-    save();
+    await save();
     res.status(201).json({ coupon: c });
   } catch (err) {
     next(err);
   }
 });
 
-router.put('/coupons/:id', (req, res, next) => {
+router.put('/coupons/:id', async (req, res, next) => {
   try {
     const i = data().coupons.findIndex((x) => x.id === req.params.id);
     if (i < 0) throw bad('Coupon not found.', 404);
@@ -429,20 +465,20 @@ router.put('/coupons/:id', (req, res, next) => {
     if (data().coupons.some((x) => x.code === c.code && x.id !== c.id)) throw bad('A coupon with this code already exists.');
     data().coupons[i] = c;
     audit(req.admin.email, 'coupon.updated', c.code);
-    save();
+    await save();
     res.json({ coupon: c });
   } catch (err) {
     next(err);
   }
 });
 
-router.delete('/coupons/:id', (req, res, next) => {
+router.delete('/coupons/:id', async (req, res, next) => {
   try {
     const c = data().coupons.find((x) => x.id === req.params.id);
     if (!c) throw bad('Coupon not found.', 404);
     data().coupons = data().coupons.filter((x) => x !== c);
     audit(req.admin.email, 'coupon.deleted', c.code);
-    save();
+    await save();
     res.json({ ok: true });
   } catch (err) {
     next(err);
@@ -465,7 +501,7 @@ router.post('/admins', requireOwner, async (req, res, next) => {
     const admin = { id: newId('a_'), email, name, role: 'admin', passHash: await hashPassword(req.body.password), disabled: false, tokenVersion: 0, createdAt: new Date().toISOString() };
     data().admins.push(admin);
     audit(req.admin.email, 'admin.created', email);
-    save();
+    await save();
     res.status(201).json({ admin: publicAdmin(admin) });
   } catch (err) {
     next(err);
@@ -486,21 +522,21 @@ router.patch('/admins/:id', requireOwner, async (req, res, next) => {
       a.tokenVersion = (a.tokenVersion || 0) + 1;
       audit(req.admin.email, 'admin.password.reset', a.email);
     }
-    save();
+    await save();
     res.json({ admin: publicAdmin(a) });
   } catch (err) {
     next(err);
   }
 });
 
-router.delete('/admins/:id', requireOwner, (req, res, next) => {
+router.delete('/admins/:id', requireOwner, async (req, res, next) => {
   try {
     const a = data().admins.find((x) => x.id === req.params.id);
     if (!a) throw bad('Admin not found.', 404);
     if (a.role === 'owner') throw bad('The owner account cannot be removed.');
     data().admins = data().admins.filter((x) => x !== a);
     audit(req.admin.email, 'admin.removed', a.email);
-    save();
+    await save();
     res.json({ ok: true });
   } catch (err) {
     next(err);

@@ -26,7 +26,7 @@ trackRouter.post('/', limit(10 * 60 * 1000, 25, 'Too many tries. Please wait a f
 
     // Show fresh tracking when the parcel is on its way and our copy is a little old.
     let note = '';
-    if (isActive(order) && delhivery.config.configured && Date.now() - Date.parse(order.shipment.lastCheckedAt || 0) > 10 * 60 * 1000) {
+    if (isActive(order) && delhivery.config.configured && Date.now() - (Date.parse(order.shipment.lastCheckedAt) || 0) > 10 * 60 * 1000) {
       try { await refreshOrder(order); } catch { note = 'Live tracking is busy right now. This is the latest we have.'; }
     }
     const s = order.shipment;
@@ -61,19 +61,22 @@ shippingRouter.get('/check', limit(10 * 60 * 1000, 120, 'Too many checks. Please
     cache.set(pin, { at: Date.now(), value });
     return res.json({ configured: true, ...value });
   } catch {
-    return res.json({ configured: false }); // never block a customer because the courier is slow
+    return res.status(503).json({ error: 'Delivery availability could not be checked. Please try again shortly.' });
   }
 });
 
 /* ---------- Delhivery pushes a status update here ---------- */
 
 // Give Delhivery this address: https://YOUR-SERVER/api/webhooks/delhivery?key=YOUR_DELHIVERY_WEBHOOK_SECRET
-webhookRouter.post('/delhivery', (req, res) => {
+webhookRouter.post('/delhivery', async (req, res) => {
   const secret = process.env.DELHIVERY_WEBHOOK_SECRET || '';
   if (!secret) return res.status(503).json({ error: 'Webhook not enabled.' });
   const given = Buffer.from(String(req.query.key || req.get('x-webhook-key') || ''));
   const want = Buffer.from(secret);
   if (given.length !== want.length || !crypto.timingSafeEqual(given, want)) return res.status(401).json({ error: 'Not allowed.' });
-  try { applyPush(req.body); } catch (err) { console.error('Delhivery push failed:', err); }
+  try { await applyPush(req.body); } catch (err) {
+    console.error('Delhivery push failed:', err.message);
+    return res.status(503).json({ error: 'Update could not be saved. Please retry.' });
+  }
   return res.json({ ok: true }); // Delhivery wants a 200 for every push
 });

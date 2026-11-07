@@ -1,5 +1,7 @@
 # Admin panel
 
+Delivery deployment and operation are documented in [DELIVERY-DEPLOYMENT.md](DELIVERY-DEPLOYMENT.md). Online orders now require an admin-confirmed payment receipt before prepaid shipment booking. Ambiguous booking attempts must be reconciled before retrying.
+
 The admin panel lives at **`/admin`** on the website. It is not linked from anywhere and is marked `noindex`, but
 that is only to keep it tidy. What actually keeps it private is the server: every admin request needs a signed-in
 admin (a hashed password, a signed `httpOnly` cookie, rate-limited sign-in). Without signing in, `/admin` shows only a sign-in box.
@@ -56,6 +58,28 @@ Until the server is online, **checkout cannot place orders** (it tells the custo
 - **Updates reach the website two ways**: Delhivery pushes each scan to `https://YOUR-SERVER/api/webhooks/delhivery?key=YOUR_SECRET` (ask Delhivery to switch this on for your account), and the server also checks every parcel that is still on its way every 30 minutes.
 - **Settings** are in `server/.env` (see `server/.env.example`): `DELHIVERY_TOKEN`, `DELHIVERY_ENV` (`staging` first, then `production`), `DELHIVERY_PICKUP_LOCATION`, `DELHIVERY_WEBHOOK_SECRET`. Keep the token only in that file; never paste it in chat or commit it.
 - The Delhivery calls follow their public Express API (create shipment, track, PIN code check, label, pickup, cancel). Their full documentation is behind the Delhivery One login, so **test everything on your staging account first** and check the booking, the label and a pushed scan before switching to production.
+
+## Customer artwork in Cloudflare R2 (optional)
+
+### Artwork, mockups and dispatch retention
+
+New custom cart items keep an immutable design snapshot in IndexedDB, including PNG mockups of each decorated side (or every side for a blank garment). Each cart line has its own design ID, so two designs of the same product stay separate. Files upload when the customer places the order; drafts that have not been ordered stay on the customer's device. A failed preview or upload blocks completion rather than accepting an order without the files.
+
+Create a private R2 bucket and a bucket-scoped **Object Read & Write** token. In `server/.env`, set `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and either `R2_ACCOUNT_ID` or the full `R2_ENDPOINT` from Cloudflare. Set `R2_REQUIRED=true` to refuse custom orders if R2 is not configured. These are backend settings; never put the secret key in Vite variables or chat. Restart the server after changing them.
+
+Run `npm run r2:check -w server` to upload, download and delete a disposable test object. The bucket must permit object listing and deletion as well as reads and writes. Keep public access disabled; admins access files through the authenticated order API.
+
+Files are kept until Delhivery reports a recognized dispatched/in-transit, out-for-delivery or delivered scan. AWB creation, pickup pending, an unknown scan and manually setting an order to Shipped do **not** delete files. Dispatch confirmation is persisted on the order. The backend deletes that order's uploaded artwork and mockups, retries failures every minute and after restart, and shows the removal time in the admin order. Order details and design layer metadata remain. Files are not restored if the status is subsequently changed or the parcel is returned.
+
+Existing local artwork remains readable, but is not automatically migrated to R2. Old cart entries must be added again in the studio to include a separate snapshot and mockups. Static product photographs and public admin content images keep their existing storage behavior.
+
+The backend must remain running for webhook handling and cleanup retries. Do not add an age-based R2 lifecycle expiration to the order artwork prefix: production and dispatch times vary.
+
+By default customers' artwork is saved in `DATA_DIR/uploads` on the server. To keep it in Cloudflare R2 instead (so it does not use the server's disk), create a **private** bucket and an API token with *Object Read & Write* for it, then set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and `R2_BUCKET` (see `server/.env.example`) and restart.
+
+- The files are never public: only signed-in admins can open them, through the order page. Do not turn on public access or a public domain for the bucket.
+- If the bucket cannot be reached, the order is refused with "try again" rather than saved without its artwork.
+- Artwork saved on the disk before R2 was switched on still opens. Deleting an order removes its files from the bucket.
 
 ## Good to know
 

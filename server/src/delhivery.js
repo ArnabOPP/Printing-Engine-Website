@@ -56,8 +56,13 @@ async function call(path, { method = 'GET', body, form, query, raw = false } = {
     let json;
     try { json = JSON.parse(text); } catch { json = null; }
     if (res.status === 401 || res.status === 403) throw fail('Delhivery rejected the API token. Check DELHIVERY_TOKEN and whether it matches the environment (staging or production).', 502);
-    if (!res.ok && !json) throw fail(`Delhivery answered ${res.status}.`);
-    return json ?? {};
+    if (!res.ok) {
+      const err = fail(`Delhivery answered ${res.status}. Please retry or check the courier portal.`, res.status >= 500 ? 502 : 422);
+      err.courierStatus = res.status;
+      throw err;
+    }
+    if (!json) throw fail('Delhivery returned an unreadable response.');
+    return json;
   } catch (err) {
     if (err.name === 'AbortError') throw fail('Delhivery took too long to answer. Try again.', 504);
     if (err.status) throw err;
@@ -98,14 +103,17 @@ export async function serviceability(pin) {
 
 // The customer-friendly stage of a parcel, from Delhivery's status words and codes.
 export function stageOf(status = '', type = '') {
-  const s = String(status).toLowerCase();
+  const s = String(status).toLowerCase().replace(/[\u00ad\u200b]/g, '').replace(/[-–]/g, ' ');
   const t = String(type).toUpperCase();
-  if (t === 'DL' || (/delivered/.test(s) && !/undelivered/.test(s))) return 'delivered';
-  if (t === 'RT' || /rto|return/.test(s)) return 'returned';
+  if (/^rto$|rto delivered|returned to (origin|sender)|return delivered/.test(s)) return 'returned';
+  if (t === 'RT' || /rto|return/.test(s)) return 'returning';
   if (t === 'CN' || /cancel/.test(s)) return 'cancelled';
+  if (t === 'DL' || (/\bdelivered\b/.test(s) && !/undelivered|not delivered/.test(s))) return 'delivered';
   if (/out for delivery|dispatched/.test(s)) return 'out_for_delivery';
   if (/manifest|pickup (pending|scheduled|requested)|not picked|awaiting/.test(s) || t === 'PP') return 'booked';
-  return 'in_transit';
+  if (/in\s*transit|picked.?up|pickup completed|received at|arrived|departed|dispatched|pending at|reached|bag added|connection|vehicle/.test(s) || (s.trim() === 'pending' && t === 'UD')) return 'in_transit';
+  // Unknown / empty courier messages are not proof of dispatch.
+  return 'booked';
 }
 
 export function normaliseTracking(json) {
@@ -120,6 +128,8 @@ export function normaliseTracking(json) {
     code: d.StatusCode || '',
   })).filter((e) => e.text).sort((a, b) => (a.at < b.at ? 1 : -1));
   return {
+    waybill: String(sh.AWB || sh.Waybill || ''),
+    orderId: String(sh.ReferenceNo || sh.OrderId || sh.OrderID || ''),
     status: st.Status || '',
     statusType: st.StatusType || '',
     stage: stageOf(st.Status, st.StatusType),
@@ -138,6 +148,28 @@ export async function track(awb) {
   return t;
 }
 
+export async function findShipment(orderId) {
+  const json = await call('/api/v1/packages/json/', { query: { ref_ids: orderId } });
+  if (!json || !Array.isArray(json.ShipmentData)) throw fail('Delhivery returned an unreadable reconciliation response.');
+  if (json.ShipmentData.length > 1) throw fail('Multiple courier shipments match this order. Check the courier portal and attach the correct AWB.', 409);
+  const tracking = normaliseTracking(json);
+  if (!tracking) return null;
+  if (!tracking.waybill || (tracking.orderId && tracking.orderId !== orderId)) throw fail('The courier response does not identify this order.', 409);
+  return tracking;
+}
+
+export async function checkDestination(pin, payment) {
+  if (!config.configured) {
+    if (process.env.NODE_ENV === 'production') throw fail('Delivery is not configured yet. Please try again later.', 503);
+    return null;
+  }
+  const info = await serviceability(pin);
+  if (!info.serviceable) throw fail('Delhivery does not serve this PIN code.', 400);
+  if (payment === 'cod' && !info.cod) throw fail('Cash on delivery is unavailable for this PIN code. Choose online payment.', 400);
+  if (payment !== 'cod' && !info.prepaid) throw fail('Prepaid delivery is unavailable for this PIN code.', 400);
+  return info;
+}
+
 /* ---------- booking ---------- */
 
 export async function createShipment({ order, parcel, codAmount }) {
@@ -145,7 +177,7 @@ export async function createShipment({ order, parcel, codAmount }) {
   const c = order.customer;
   const qty = order.items.reduce((n, i) => n + i.qty, 0);
   const cod = order.payment === 'cod';
-  const total = order.total ?? order.subtotal;
+  const total = order.confirmedTotal ?? order.total ?? order.subtotal;
   const r = config.returnAddress;
   const shipment = {
     name: c.name, add: [c.line1, c.line2].filter(Boolean).join(', '), pin: c.pin, city: c.city, state: c.state, country: 'India', phone: c.phone,
@@ -168,7 +200,7 @@ export async function createShipment({ order, parcel, codAmount }) {
 
 export async function cancelShipment(awb) {
   const json = await call('/api/p/edit', { method: 'POST', body: { waybill: awb, cancellation: 'true' } });
-  if (json?.status === false || json?.success === false) throw fail(`Delhivery: ${json.error || json.message || 'could not cancel this shipment.'}`, 422);
+  if (json?.status !== true && json?.success !== true && json?.status !== 'Success') throw fail('Delhivery did not confirm shipment cancellation. Check its portal before retrying.', 422);
   return true;
 }
 
@@ -187,8 +219,8 @@ export async function label(awb) {
   const json = await res.json().catch(() => ({}));
   const link = json?.packages?.[0]?.pdf_download_link;
   if (link && /^https:\/\//.test(link)) {
-    const pdf = await fetch(link);
-    if (pdf.ok) return { pdf: Buffer.from(await pdf.arrayBuffer()) };
+    const pdf = await fetch(link, { signal: AbortSignal.timeout(12000) });
+    if (pdf.ok && (pdf.headers.get('content-type') || '').includes('pdf')) return { pdf: Buffer.from(await pdf.arrayBuffer()) };
   }
   throw fail('Delhivery did not return a label for this AWB yet.', 404);
 }

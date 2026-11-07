@@ -5,7 +5,10 @@ import { useCart } from '../context/CartContext.jsx';
 import { rupees } from '../studio/pricing.js';
 import { readAccount, writeAccount } from '../account.js';
 import { api } from '../api.js';
+import { useAuth } from '../context/AuthContext.jsx';
+import { saveOrder, saveProfile } from '../cloud.js';
 import { useWishlist } from '../context/WishlistContext.jsx';
+import { loadDesignAsset, removeDesignAsset } from '../studio/designAssets.js';
 
 const payments = [
   { id: 'cod', title: 'Cash on delivery', text: 'Pay in cash when your order arrives.' },
@@ -42,6 +45,14 @@ export default function Checkout() {
   const [checking, setChecking] = useState(false);
   const [pinInfo, setPinInfo] = useState(null); // what Delhivery says about the PIN code: { serviceable, cod, city, state }
   const { items: wishlist } = useWishlist();
+  const { user, cloud } = useAuth();
+
+  // Details from the signed-in account arrive a moment after the page opens; fill in anything still empty.
+  useEffect(() => {
+    if (!cloud?.ready) return;
+    const a = readAccount();
+    setForm((f) => { const next = { ...f }; Object.keys(a).forEach((k) => { if (!String(f[k] || '').trim() && a[k]) next[k] = a[k]; }); return next; });
+  }, [cloud?.ready]);
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [placed]);
 
@@ -113,22 +124,22 @@ export default function Checkout() {
     setSending(true);
     setFailure('');
     // Custom designs travel with the order (their layers and uploaded pictures) so they can be printed.
-    const designs = {};
-    items.forEach((i) => {
-      if (!i.slug || designs[i.slug]) return;
-      try {
-        const d = JSON.parse(localStorage.getItem(`po-design-${i.slug}`) || 'null');
-        if (d) designs[i.slug] = d;
-      } catch { /* no saved design */ }
-    });
     try {
+      const designs = {};
+      for (const i of items) {
+        if (!i.slug) continue;
+        if (!i.designId) throw new Error('Please reopen your custom product in the design studio and add it again so its artwork and mockups can be saved.');
+        const d = await loadDesignAsset(i.designId);
+        if (!d) throw new Error('A saved design is missing from this device. Please add that custom product again.');
+        designs[i.designId] = d;
+      }
       const sent = await api('/api/orders', {
         method: 'POST',
         body: {
           customer: form,
           payment: pay,
           coupon: coupon?.code || '',
-          items: items.map(({ name, detail, img, qty, unit, slug, config }) => ({ name, detail, img, qty, unit, slug, config })),
+          items: items.map(({ name, detail, img, qty, unit, slug, config, designId }) => ({ name, detail, img, qty, unit, slug, config, designId })),
           designs,
           wishlist: wishlist.map(({ name, href }) => ({ name, href })),
         },
@@ -139,8 +150,11 @@ export default function Checkout() {
         const all = JSON.parse(localStorage.getItem('orders') || '[]');
         localStorage.setItem('orders', JSON.stringify([order, ...(Array.isArray(all) ? all : [])].slice(0, 50)));
       } catch { /* ignore */ }
-      if (keep) { const { note, ...details } = form; writeAccount(details); }
+      if (keep) { const { note, ...details } = form; writeAccount(details); if (user) saveProfile(user.uid, details).catch(() => {}); }
+      // Signed in: the order also goes into the account, so it is there on any device.
+      if (user) saveOrder(user.uid, order).catch(() => {});
       clear();
+      items.forEach((i) => { if (i.designId) removeDesignAsset(i.designId).catch(() => {}); });
       setPlaced(order);
     } catch (err) {
       setFailure(err.message);

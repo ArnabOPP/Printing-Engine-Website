@@ -9,9 +9,14 @@ import { ORIGINS, PORT, isProd } from './config.js';
 import apiRouter from './routes/index.js';
 import adminRouter from './routes/admin.js';
 import { catalogRouter, contentRouter, couponRouter, ordersRouter } from './routes/public.js';
-import { PUBLIC_DIR } from './store.js';
+import { PUBLIC_DIR, save } from './store.js';
 import { shippingRouter, trackRouter, webhookRouter } from './routes/track.js';
 import { pollActive } from './shipping.js';
+import { cleanupDispatchedAssets } from './assetRetention.js';
+import { acquireStoreLock } from './processLock.js';
+
+const releaseLock = acquireStoreLock();
+process.on('exit', releaseLock);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -20,7 +25,12 @@ app.set('trust proxy', 1); // behind a host's proxy, so rate limits see the real
 app.use(helmet());
 // Only the shop's own website may call the API with cookies (the admin login cookie included).
 app.use(cors({ origin: ORIGINS, credentials: true }));
-app.use(morgan(isProd ? 'combined' : 'dev'));
+morgan.token('safe-url', (req) => {
+  const url = new URL(req.originalUrl, 'http://local');
+  if (url.searchParams.has('key')) url.searchParams.set('key', '[redacted]');
+  return url.pathname + url.search;
+});
+app.use(morgan(':method :safe-url :status :response-time ms'));
 app.use(cookieParser());
 
 // Orders can carry the customer's uploaded artwork, so this one route accepts a bigger body than the rest.
@@ -42,9 +52,10 @@ app.use('/api/shipping', shippingRouter);
 app.use('/api/webhooks', webhookRouter);
 app.use('/api/admin', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); }, adminRouter);
 app.use('/api', apiRouter);
+app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found' }));
 
 // Serve the built React app in production
-if (isProd) {
+if (isProd && process.env.API_ONLY !== 'true') {
   const clientDist = path.join(__dirname, '../../client/dist');
   app.use(express.static(clientDist));
   app.get('*', (req, res) => {
@@ -63,7 +74,28 @@ app.use((err, req, res, next) => {
   return res.status(500).json({ error: 'Something went wrong on our side.' });
 });
 
-app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));
+const server = app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));
+server.on('error', (err) => { console.error('Server failed:', err.message); process.exitCode = 1; releaseLock(); });
 
 // Check parcels that are on their way every 30 minutes (covers any push Delhivery misses).
-setInterval(() => pollActive().catch((e) => console.error('Tracking poll failed:', e.message)), 30 * 60 * 1000).unref();
+const polling = setInterval(() => pollActive().catch((e) => console.error('Tracking poll failed:', e.message)), 30 * 60 * 1000);
+polling.unref();
+pollActive().catch((e) => console.error('Initial tracking check failed:', e.message));
+// Retry interrupted deletions after restart and independently of courier polling.
+cleanupDispatchedAssets().catch((e) => console.error('Artwork cleanup failed:', e.message));
+const cleanup = setInterval(() => cleanupDispatchedAssets().catch((e) => console.error('Artwork cleanup failed:', e.message)), 60 * 1000);
+cleanup.unref();
+let stopping = false;
+async function shutdown() {
+  if (stopping) return;
+  stopping = true;
+  clearInterval(polling);
+  clearInterval(cleanup);
+  server.close(async () => {
+    try { await save(); } catch (err) { console.error('Shutdown save failed:', err.message); process.exitCode = 1; }
+    releaseLock();
+    process.exit(process.exitCode || 0);
+  });
+}
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);

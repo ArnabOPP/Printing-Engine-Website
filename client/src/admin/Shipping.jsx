@@ -3,18 +3,19 @@ import { Download, ExternalLink, RefreshCw, Truck } from 'lucide-react';
 import { api, fileUrl } from '../api.js';
 import { fmtTime, rupees, useLoad } from './ui.jsx';
 
-const STAGE = { booked: 'Booked', in_transit: 'In transit', out_for_delivery: 'Out for delivery', delivered: 'Delivered', returned: 'Returned', cancelled: 'Cancelled' };
+const STAGE = { booked: 'Booked', in_transit: 'In transit', out_for_delivery: 'Out for delivery', delivered: 'Delivered', returning: 'Returning to sender', returned: 'Returned', cancelled: 'Cancelled' };
 const KEY = 'ship-defaults';
 const readDefaults = () => { try { return { weight: '300', length: '25', width: '20', height: '4', ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return { weight: '300', length: '25', width: '20', height: '4' }; } };
 
 // The Shipping part of an order: book it with Delhivery (or record an AWB you booked yourself), then follow it.
-export function ShippingSection({ order: o, onChanged }) {
+export function ShippingSection({ order: o, onChanged, owner = false }) {
   const { data: cfg } = useLoad('/api/admin/shipping');
   const [pin, setPin] = useState(null);
   const [mode, setMode] = useState('create');
   const [f, setF] = useState({ ...readDefaults(), waybill: '', description: '', codAmount: '' });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const [paid, setPaid] = useState({ amount: String(o.total ?? o.subtotal ?? ''), reference: '' });
   const s = o.shipment && !o.shipment.cancelled ? o.shipment : null;
   const set = (k) => (e) => setF((c) => ({ ...c, [k]: e.target.value }));
 
@@ -33,7 +34,8 @@ export function ShippingSection({ order: o, onChanged }) {
   const book = (e) => {
     e.preventDefault();
     if (mode === 'create') { try { localStorage.setItem(KEY, JSON.stringify({ weight: f.weight, length: f.length, width: f.width, height: f.height })); } catch { /* ignore */ } }
-    run(() => api(base, { method: 'POST', body: mode === 'manual' ? { mode: 'manual', waybill: f.waybill } : { ...f, mode: 'create' } }), mode === 'manual' ? 'AWB saved.' : 'Booked with Delhivery.');
+    const manual = mode === 'manual' || !cfg?.configured;
+    run(() => api(base, { method: 'POST', body: manual ? { mode: 'manual', waybill: f.waybill } : { ...f, mode: 'create' } }), manual ? 'AWB saved.' : 'Booked with Delhivery.');
   };
 
   const openLabel = async () => {
@@ -47,6 +49,23 @@ export function ShippingSection({ order: o, onChanged }) {
   return (
     <section>
       <h3><Truck size={13} /> Shipping · Delhivery</h3>
+      {o.payment !== 'cod' && (o.paymentStatus === 'paid' ? (
+        <p className="ad-note">Payment received: {rupees(o.paymentReceipt?.amount ?? o.confirmedTotal)} · {o.paymentReceipt?.reference}</p>
+      ) : (
+        <form className="ad-fields" onSubmit={(e) => { e.preventDefault(); run(() => api(`/api/admin/orders/${o.id}/payment`, { method: 'POST', body: paid }), 'Payment confirmed.'); }}>
+          <p className="ad-warn">Check that the payment has reached your bank before confirming. Prepaid shipping stays blocked until then.</p>
+          <label className="ad-field">Final amount received (₹)<input type="number" min="0.01" step="0.01" max="1000000" value={paid.amount} onChange={(e) => setPaid({ ...paid, amount: e.target.value })} required /></label>
+          <label className="ad-field">UTR / payment reference<input minLength={4} maxLength={120} value={paid.reference} onChange={(e) => setPaid({ ...paid, reference: e.target.value })} required /></label>
+          <button className="ad-btn" disabled={busy}>Confirm payment received</button>
+        </form>
+      ))}
+      {!s && ['pending', 'uncertain'].includes(o.bookingAttempt?.state) && (
+        <div className="ad-note">
+          <p>A previous booking needs checking. Look up this order in Delhivery before booking again.</p>
+          <button type="button" className="ad-btn" disabled={busy} onClick={() => run(async () => { const r = await api(`${base}/reconcile`, { method: 'POST' }); if (!r.found) throw new Error('No shipment found yet. Check the courier portal; a delayed booking may still appear.'); }, 'Existing shipment attached.')} >Find existing shipment</button>
+          {owner && <button type="button" className="ad-btn" disabled={busy} onClick={() => window.confirm('Have you checked the Delhivery portal and confirmed that no shipment was created for this order? Resetting permits a new booking.') && run(() => api(`${base}/reset-attempt`, { method: 'POST', body: { reviewedNoShipment: true } }), 'Booking attempt reset.')} >I checked: no shipment exists</button>}
+        </div>
+      )}
       {cfg && !cfg.configured && (
         <p className="ad-note">Delhivery is not connected on the server yet, so you cannot book from here and tracking will not update by itself. You can still book on Delhivery’s own site and type the AWB below; customers get a link to Delhivery’s tracking page.</p>
       )}
@@ -65,7 +84,7 @@ export function ShippingSection({ order: o, onChanged }) {
           </div>
           <div className="ad-statusrow">
             <button type="button" className="ad-btn" disabled={busy || !cfg?.configured} onClick={() => run(() => api(`${base}/refresh`, { method: 'POST' }), 'Tracking updated.')}><RefreshCw size={14} /> Refresh tracking</button>
-            {s.createdVia === 'api' && <button type="button" className="ad-btn" disabled={busy} onClick={openLabel}><Download size={14} /> Shipping label</button>}
+            <button type="button" className="ad-btn" disabled={busy || !cfg?.configured || s.cancelled} onClick={openLabel}><Download size={14} /> Shipping label</button>
             <a className="ad-btn" href={`https://www.delhivery.com/track-v2/package/${s.waybill}`} target="_blank" rel="noreferrer noopener"><ExternalLink size={14} /> Delhivery page</a>
             <button type="button" className="ad-btn danger" disabled={busy} onClick={() => window.confirm(`Cancel the Delhivery shipment ${s.waybill}?`) && run(() => api(`${base}/cancel`, { method: 'POST' }), 'Shipment cancelled.')}>Cancel shipment</button>
           </div>
@@ -101,7 +120,7 @@ export function ShippingSection({ order: o, onChanged }) {
               <p className="ad-muted">Pickup location: <b>{cfg?.pickupLocation || 'not set (DELHIVERY_PICKUP_LOCATION)'}</b></p>
             </>
           )}
-          <button className="ad-btn primary" disabled={busy}>{busy ? 'Working…' : mode === 'manual' || !cfg?.configured ? 'Save AWB' : 'Book shipment'}</button>
+          <button className="ad-btn primary" disabled={busy || (o.payment !== 'cod' && o.paymentStatus !== 'paid') || (mode !== 'manual' && cfg?.configured && ['pending', 'uncertain'].includes(o.bookingAttempt?.state))}>{busy ? 'Working…' : mode === 'manual' || !cfg?.configured ? 'Save AWB' : 'Book shipment'}</button>
         </form>
       )}
       {msg && <p className={/booked|saved|updated|cancelled/i.test(msg) ? 'ad-note' : 'ad-error'} role="status">{msg}</p>}
@@ -116,7 +135,8 @@ export function DelhiveryTools() {
   const [msg, setMsg] = useState('');
   const [ok, setOk] = useState(true);
   const [busy, setBusy] = useState(false);
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const tomorrow = new Date(Date.now() + 86400000).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
   const [p, setP] = useState({ date: tomorrow, time: '15:00', count: '1' });
 
   const run = async (fn) => {
@@ -132,7 +152,7 @@ export function DelhiveryTools() {
         <div>
           <b><Truck size={15} /> Delhivery</b>{' '}
           {cfg.configured ? <span className={`ad-pill ${cfg.env === 'production' ? 'lime' : ''}`}>{cfg.env === 'production' ? 'Connected (live)' : 'Connected (staging / test)'}</span> : <span className="ad-pill red">Not connected</span>}
-          {cfg.configured && <small className="ad-muted"> · {cfg.onTheWay} parcel{cfg.onTheWay === 1 ? '' : 's'} on the way{cfg.webhookReady ? ' · live updates on' : ' · live updates off (checking every 30 min)'}</small>}
+          {cfg.configured && <small className="ad-muted"> · {cfg.onTheWay} parcel{cfg.onTheWay === 1 ? '' : 's'} on the way{cfg.webhookReady ? ' · webhook configured (verify in Delhivery)' : ' · checking every 30 min'}</small>}
         </div>
         {cfg.configured && (
           <div className="ad-statusrow">
@@ -144,7 +164,7 @@ export function DelhiveryTools() {
       {!cfg.configured && <p className="ad-muted">Add your Delhivery details to the server settings to book parcels and track them automatically. See ADMIN.md.</p>}
       {open && (
         <form className="ad-fields ad-pickup" onSubmit={(e) => { e.preventDefault(); run(async () => { await api('/api/admin/shipping/pickup', { method: 'POST', body: p }); setOpen(false); return 'Pickup requested from Delhivery.'; }); }}>
-          <label className="ad-field">Date<input type="date" min={tomorrow.slice(0, 8) + '01'} value={p.date} onChange={(e) => setP({ ...p, date: e.target.value })} required /></label>
+          <label className="ad-field">Date (India time)<input type="date" min={today} value={p.date} onChange={(e) => setP({ ...p, date: e.target.value })} required /></label>
           <label className="ad-field">Time<input type="time" value={p.time} onChange={(e) => setP({ ...p, time: e.target.value })} required /></label>
           <label className="ad-field">Parcels<input type="number" min="1" max="500" value={p.count} onChange={(e) => setP({ ...p, count: e.target.value })} required /></label>
           <div className="ad-field"><span>&nbsp;</span><button className="ad-btn primary" disabled={busy}>Request pickup</button></div>

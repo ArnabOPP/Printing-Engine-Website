@@ -18,19 +18,22 @@ const fresh = () => ({ admins: [], orders: [], catalog: {}, content: {}, coupons
 let db;
 try {
   db = { ...fresh(), ...JSON.parse(fs.readFileSync(FILE, 'utf8')) };
-} catch {
+} catch (err) {
+  if (err.code !== 'ENOENT') throw new Error('The order database could not be read. Restore or repair it before starting the server.', { cause: err });
   db = fresh();
 }
 
 let writing = Promise.resolve();
 function persist() {
   const json = JSON.stringify(db);
-  writing = writing.then(async () => {
+  const task = writing.then(async () => {
     const tmp = `${FILE}.${process.pid}.tmp`;
-    await fs.promises.writeFile(tmp, json);
+    const handle = await fs.promises.open(tmp, 'w');
+    try { await handle.writeFile(json); await handle.sync(); } finally { await handle.close(); }
     await fs.promises.rename(tmp, FILE);
-  }).catch((err) => console.error('Could not save the database:', err));
-  return writing;
+  });
+  writing = task.catch((err) => console.error('Could not save the database:', err.message));
+  return task;
 }
 
 export const newId = (prefix = '') => prefix + crypto.randomBytes(6).toString('hex');

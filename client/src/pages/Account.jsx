@@ -4,6 +4,7 @@ import { Check, ChevronRight, Heart, MapPin, Package, ShieldAlert, Trash2, User 
 import { useAuth } from '../context/AuthContext.jsx';
 import { useWishlist } from '../context/WishlistContext.jsx';
 import { EMPTY_ACCOUNT, readAccount, readOrders, validateDetails, writeAccount } from '../account.js';
+import { saveProfile } from '../cloud.js';
 import { rupees } from '../studio/pricing.js';
 
 const payLabel = { cod: 'Cash on delivery', upi: 'UPI / online payment' };
@@ -11,16 +12,16 @@ const fmtDate = (iso) => new Date(iso).toLocaleDateString('en-IN', { day: 'numer
 
 export default function Account() {
   const { count: saved } = useWishlist();
-  const { user, available, signOut } = useAuth();
+  const { user, cloud, available, signOut } = useAuth();
   const [form, setForm] = useState(() => {
     const a = readAccount();
     return { ...a, name: a.name || '', email: a.email || '' };
   });
-  // Once signed in, fill in the name and email from the account if they are still empty.
+  // Signing in or out, or the account's data arriving, refreshes what this page shows.
   useEffect(() => {
-    if (!user) return;
-    setForm((f) => ({ ...f, name: f.name || user.displayName || '', email: f.email || user.email || '' }));
-  }, [user]);
+    setForm({ ...EMPTY_ACCOUNT, ...readAccount() });
+    setOrders(readOrders());
+  }, [user?.uid, cloud?.ready]); // eslint-disable-line react-hooks/exhaustive-deps
   const [touched, setTouched] = useState({});
   const [savedNote, setSavedNote] = useState('');
   const [orders, setOrders] = useState(readOrders);
@@ -45,7 +46,13 @@ export default function Account() {
       return;
     }
     writeAccount(form);
-    setSavedNote('Details saved on this device. They will fill in at checkout.');
+    if (user) {
+      saveProfile(user.uid, form)
+        .then(() => setSavedNote('Details saved to your account. They will fill in at checkout.'))
+        .catch(() => setSavedNote('Saved on this device, but could not reach your account. Try again.'));
+      return;
+    }
+    setSavedNote('Details saved on this device. Sign in to keep them with your account.');
   };
 
   const clearAll = () => {
@@ -145,7 +152,7 @@ export default function Account() {
         )}
       </section>
 
-      <section className="co-card ac-danger" aria-labelledby="ac-data">
+      {!user && <section className="co-card ac-danger" aria-labelledby="ac-data">
         <h2 id="ac-data"><span><ShieldAlert size={13} /></span> Data on this device</h2>
         <p className="co-lead">Your details, orders, wishlist and cart are stored in this browser. Clearing them cannot be undone.</p>
         {confirmClear ? (
@@ -156,7 +163,7 @@ export default function Account() {
         ) : (
           <button type="button" className="btn btn-ghost" onClick={() => setConfirmClear(true)}><Trash2 size={15} /> Clear my data</button>
         )}
-      </section>
+      </section>}
     </div>
   );
 }

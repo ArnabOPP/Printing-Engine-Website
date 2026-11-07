@@ -2,6 +2,7 @@
 // (Project settings → Your apps → Web app). They are not secrets. Put them in client/.env (see .env.example).
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
 const env = import.meta.env;
 const config = {
@@ -14,7 +15,9 @@ const config = {
 };
 
 export const firebaseReady = Boolean(config.apiKey && config.authDomain && config.projectId && config.appId);
-export const auth = firebaseReady ? getAuth(initializeApp(config)) : null;
+const app = firebaseReady ? initializeApp(config) : null;
+export const auth = app ? getAuth(app) : null;
+export const db = app ? getFirestore(app) : null;
 
 // Plain-English messages for Firebase's error codes.
 export function authMessage(err) {

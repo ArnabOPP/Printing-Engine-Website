@@ -1,4 +1,5 @@
-// The customer's saved details and past orders. There is no sign-in or server yet, so both live in this browser only.
+// The customer's saved details and past orders, kept in this browser. When someone is signed in, Firebase (cloud.js)
+// holds the real copy and this is only a cache for the pages to read quickly.
 
 export const EMPTY_ACCOUNT = { name: '', phone: '', email: '', line1: '', line2: '', city: '', state: '', pin: '' };
 
@@ -22,6 +23,10 @@ export function readOrders() {
   } catch {
     return [];
   }
+}
+
+export function writeOrders(orders) {
+  try { localStorage.setItem('orders', JSON.stringify(orders.slice(0, 50))); } catch { /* ignore */ }
 }
 
 // Same checks the checkout uses. Returns an error message per invalid field.
