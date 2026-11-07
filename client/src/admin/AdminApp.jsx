@@ -7,6 +7,7 @@ import Dashboard from './Dashboard.jsx';
 import Orders from './Orders.jsx';
 import Customers from './Customers.jsx';
 import Catalog from './Catalog.jsx';
+import CustomProducts from './CustomProducts.jsx';
 import Products from './Products.jsx';
 import HomePage from './HomePage.jsx';
 import Coupons from './Coupons.jsx';
@@ -88,7 +89,8 @@ const links = [
 
 const customLinks = [
   ['/custom-admin', 'Custom orders', Package, true],
-  ['/custom-admin/catalog', 'Custom products & prices', Shirt],
+  ['/custom-admin/products', 'Custom products', Shirt],
+  ['/custom-admin/catalog', 'Global print rates', Tags],
   ['/custom-admin/account', 'My account', Settings],
 ];
 
@@ -141,7 +143,8 @@ export default function AdminApp({ customOnly = false }) {
         {customOnly ? <Routes>
           <Route index element={<Orders key="custom" admin={admin} customOnly />} />
           <Route path="orders" element={<Navigate to={base} replace />} />
-          <Route path="catalog" element={<Catalog title="Custom products & prices" />} />
+          <Route path="products" element={<CustomProducts />} />
+          <Route path="catalog" element={<Catalog title="Global print rates" />} />
           <Route path="account" element={<MyAccount admin={admin} />} />
           <Route path="*" element={<Navigate to={base} replace />} />
         </Routes> : <Routes>

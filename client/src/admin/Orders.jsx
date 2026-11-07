@@ -72,7 +72,7 @@ function CustomDesigns({ order: o }) {
       <section key={designId}>
         <h3>Design {index + 1} · {cfg?.product || item?.name || designId}</h3>
         {cfg && <dl className="ad-custom-specs">
-          {[['Print method', cfg.methodLabel || cfg.method], ['Material', cfg.material], ['Colour', cfg.colour], ['Audience', cfg.audience],
+          {[['SKU', item?.sku || cfg.sku], ['Print method', cfg.methodLabel || cfg.method], ['Material', cfg.material], ['Colour', cfg.colour], ['Audience', cfg.audience],
             ['Quantity', item?.qty ?? cfg.quantity], ['Sizes', Object.entries(cfg.sizes || {}).map(([size, qty]) => `${size} × ${qty}`).join(', ')],
             ['Sheet', cfg.sheet && `${cfg.sheet.label} (${cfg.sheet.w} × ${cfg.sheet.h} mm)`], ['Print area', design.mode === 'full' ? 'Full body' : 'Normal']]
             .filter(([, value]) => value !== undefined && value !== null && value !== '').map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}

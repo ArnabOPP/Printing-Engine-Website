@@ -56,6 +56,21 @@
 .ad-custom-specs dd { margin: 3px 0 0; font-size: 14px; overflow-wrap: anywhere; }
 .ad-custom-item { max-width: 320px; margin-bottom: 8px; }
 .ad-custom-item:last-child { margin-bottom: 0; }
+.ad-image-field { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 16px 0; }
+.ad fieldset.ad-card { min-width: 0; margin-inline: 0; }
+.ad-image-field > span { flex: 0 0 100%; color: var(--a-muted); }
+.ad-image-field > img { width: 90px; height: 90px; object-fit: contain; border: 1px solid var(--a-line); border-radius: 8px; }
+.ad-image-field input[type=file] { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); }
+.ad-section-gap { margin-top: 24px !important; }
+.ad-mockup-editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; margin: 18px 0; }
+.ad-print-preview { position: relative; aspect-ratio: 1; display: grid; place-items: center; background: repeating-conic-gradient(#222 0% 25%, #303030 0% 50%) 50% / 20px 20px; border: 1px solid var(--a-line); overflow: hidden; }
+.ad-print-preview > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.ad-print-boundary { position: absolute; border: 2px dashed var(--a-lime); color: #fff; background: #0006; display: grid; place-items: center; font-size: 12px; pointer-events: none; }
+.ad-product-save { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; padding: 16px; background: var(--a-bg); border: 1px solid var(--a-line); border-radius: 12px; }
+.ad-product-save > p { flex-basis: 100%; }
+.ad-product-save > span { color: var(--a-muted); font-size: 13px; }
+.ad-filters > select { width: auto; }
+@media (max-width: 700px) { .ad-mockup-editor { grid-template-columns: 1fr; } .ad-product-save { position: static; } }
 .ad .ad-btn:focus-visible { outline: 2px solid var(--a-lime); outline-offset: 3px; }
 @media (max-width: 480px) { .ad-custom-specs { grid-template-columns: 1fr; } }
 

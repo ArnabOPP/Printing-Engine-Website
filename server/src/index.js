@@ -36,6 +36,7 @@ app.use(cookieParser());
 // Orders can carry the customer's uploaded artwork, so this one route accepts a bigger body than the rest.
 app.use('/api/orders', express.json({ limit: '60mb' }), ordersRouter);
 app.use('/api/admin/uploads', express.json({ limit: '12mb' })); // website pictures, uploaded by signed-in admins
+app.use('/api/admin/custom-products/media', express.json({ limit: '12mb' }));
 app.use(express.json({ limit: '1mb' }));
 
 // Pictures the team uploaded for the website. Public, and served so a browser can only ever show them as images.

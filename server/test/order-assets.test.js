@@ -16,6 +16,8 @@ const { readArtwork } = await import('../src/files.js');
 const { cleanupOrderAssets } = await import('../src/assetRetention.js');
 const { applyTracking } = await import('../src/shipping.js');
 const { stageOf } = await import('../src/delhivery.js');
+const { buildCatalog } = await import('../../shared/customCatalog.js');
+const { customQuote } = await import('../../shared/customQuote.js');
 const app = express();
 app.use(express.json());
 app.use('/orders', ordersRouter);
@@ -24,10 +26,13 @@ const server = app.listen(0, '127.0.0.1');
 await new Promise((resolve) => server.on('listening', resolve));
 const url = `http://127.0.0.1:${server.address().port}/orders`;
 const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a9ZkAAAAASUVORK5CYII=';
-const design = () => ({ front: [{ type: 'image', image: { src: png, name: 'art.png' } }], mockups: { front: png } });
+const design = () => ({ front: [{ type: 'image', x:50,y:50,rot:0,w:20,image: { src: png, name: 'art.png',ratio:1 } }],back:[],left:[],right:[],mode:'normal', mockups: { front: png } });
+const cfg = { material:'Pure cotton',colour:'white',audience:'unisex',sizes:{L:1},quantity:1,method:'dtf' };
+const product = buildCatalog().flatMap((g) => g.items).find((p) => p.slug === 'regular-t-shirt');
+const unit = customQuote(product,cfg,design()).perPiece;
 const body = () => ({
   customer: { name: 'Test Customer', phone: '9876543210', email: 'test@example.com', line1: '123 Test Street', city: 'Kolkata', state: 'West Bengal', pin: '700001' },
-  items: [{ name: 'Regular tee', qty: 1, unit: 250, slug: 'regular-t-shirt', designId: 'design-one' }, { name: 'Regular tee', qty: 1, unit: 260, slug: 'regular-t-shirt', designId: 'design-two' }],
+  items: [{ name: 'Regular tee', qty: 1, unit, config:cfg, slug: 'regular-t-shirt', designId: 'design-one' }, { name: 'Regular tee', qty: 1, unit, config:cfg, slug: 'regular-t-shirt', designId: 'design-two' }],
   designs: { 'design-one': design(), 'design-two': design() },
 });
 const post = (payload) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });

@@ -28,6 +28,7 @@
 
 .st-canvas { display: grid; place-items: center; padding: 18px; border: 1px solid var(--border); border-radius: 18px; background: var(--card-img); background-image: radial-gradient(var(--border) 1px, transparent 1px); background-size: 18px 18px; }
 .st-stage { position: relative; touch-action: none; user-select: none; }
+.st-plain-photo { display: block; width: 100%; height: 100%; object-fit: contain; }
 .st-garment, .st-flat { position: absolute; inset: 0; pointer-events: none; }
 .st-flat { border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25), inset 0 0 0 1px rgba(128, 128, 128, 0.4); }
 .st-area { position: absolute; container-type: inline-size; }

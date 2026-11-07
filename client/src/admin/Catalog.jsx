@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
-import { allGroups, applyCatalog, defaultHiddenGroups } from '../printProducts.js';
+import { allGroups, applyCatalog, buildCatalog, defaultHiddenGroups } from '../printProducts.js';
 import { Loading, PageHead, useLoad } from './ui.jsx';
 
-const byName = (n) => allGroups.flatMap((g) => g.items).find((i) => i.name === n);
+const defaults = buildCatalog();
+const byName = (n) => defaults.flatMap((g) => g.items).find((i) => i.name === n);
 const num = (v) => (v === '' || Number.isNaN(Number(v)) ? '' : v);
 
 // The prices and what is shown on the website. "Save" puts them live for every visitor on their next page load.
@@ -17,12 +18,12 @@ export default function Catalog({ title = 'Customise & prices' }) {
   useEffect(() => {
     if (!data) return;
     const saved = data.catalog || {};
-    const dtf = byName('Regular T-Shirt').pricing.methods.dtf;
-    const sub = byName('Polo T-Shirt').pricing.methods.sublimation;
+    const dtf = { ...byName('Regular T-Shirt').pricing.methods.dtf, ...saved.dtf };
+    const sub = { ...byName('Polo T-Shirt').pricing.methods.sublimation, ...saved.sublimation };
     const bases = {};
-    allGroups.flatMap((g) => g.items).forEach((i) => {
+    defaults.flatMap((g) => g.items).forEach((i) => {
       if (!i.pricing) return;
-      bases[i.name] = i.pricing.baseByMaterial ? { ...i.pricing.baseByMaterial } : i.pricing.base;
+      bases[i.name] = saved.bases?.[i.name] ?? (i.pricing.baseByMaterial ? { ...i.pricing.baseByMaterial } : i.pricing.base);
     });
     setD({
       hiddenGroups: saved.hiddenGroups ?? defaultHiddenGroups,
@@ -30,9 +31,9 @@ export default function Catalog({ title = 'Customise & prices' }) {
       dtf: { normalPerSqIn: dtf.normalPerSqIn, fullPerSqIn: dtf.fullPerSqIn },
       sublimation: { normalPerSqIn: sub.normalPerSqIn, fullPerSqIn: sub.fullPerSqIn },
       sheetPrices: {
-        'DTF Printing': { rate: byName('DTF Printing').sheetPrice.rate },
-        'UV DTF Printing': { rate: byName('UV DTF Printing').sheetPrice.rate },
-        'Sublimation Printing': { a4: byName('Sublimation Printing').sheetPrice.a4 },
+        'DTF Printing': saved.sheetPrices?.['DTF Printing'] || { rate: byName('DTF Printing').sheetPrice.rate },
+        'UV DTF Printing': saved.sheetPrices?.['UV DTF Printing'] || { rate: byName('UV DTF Printing').sheetPrice.rate },
+        'Sublimation Printing': saved.sheetPrices?.['Sublimation Printing'] || { a4: byName('Sublimation Printing').sheetPrice.a4 },
       },
       bases,
     });
@@ -61,7 +62,7 @@ export default function Catalog({ title = 'Customise & prices' }) {
   };
 
   const reset = async () => {
-    if (!window.confirm('Go back to the built-in prices and products for everyone? Your changes will be lost.')) return;
+    if (!window.confirm('Reset global rates and category visibility? Individual product settings and stock are kept.')) return;
     try {
       await api('/api/admin/catalog', { method: 'PUT', body: { catalog: {} } });
       window.location.reload();
@@ -77,7 +78,7 @@ export default function Catalog({ title = 'Customise & prices' }) {
   return (
     <>
       <PageHead title={title}>
-        <button type="button" className="ad-btn" onClick={reset}>Reset to defaults</button>
+        <button type="button" className="ad-btn" onClick={reset}>Reset global defaults</button>
         <button type="button" className="ad-btn primary" onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>
       </PageHead>
       {msg && <p className="ad-note" role="status">{msg}</p>}

@@ -20,6 +20,16 @@ export async function cleanupOrderAssets(order, { remove = deleteArtwork, persis
 }
 
 export async function cleanupDispatchedAssets() {
+  for (const id of [...(data().pendingFileDeletes || [])]) {
+    if (running.has(id)) continue;
+    running.add(id);
+    try {
+      await deleteArtwork(id);
+      data().pendingFileDeletes = data().pendingFileDeletes.filter((value) => value !== id);
+      await save();
+    } catch (err) { console.error(`Deleted order file cleanup pending for ${id}:`, err.message); }
+    finally { running.delete(id); }
+  }
   for (const order of data().orders) {
     try { await cleanupOrderAssets(order); }
     catch (err) { console.error(`Artwork cleanup pending for ${order.id}:`, err.message); }

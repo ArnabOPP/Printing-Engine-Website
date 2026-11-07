@@ -4,9 +4,11 @@ import crypto from 'node:crypto';
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { audit, data, save } from '../store.js';
-import { saveArtwork, deleteArtwork, r2Enabled } from '../files.js';
+import { saveArtwork, deleteArtwork, r2Enabled, readCatalogMedia } from '../files.js';
 import { couponResult } from '../content.js';
 import { checkDestination } from '../delhivery.js';
+import { withCatalogLock } from '../catalogLock.js';
+import { prepareCustomOrder, reserveInventory } from '../inventory.js';
 
 export const catalogRouter = Router();
 export const contentRouter = Router();
@@ -16,7 +18,17 @@ export const ordersRouter = Router();
 // What the shop sells and charges. The website loads this when it opens (see client/src/printProducts.js).
 catalogRouter.get('/', (req, res) => {
   res.set('Cache-Control', 'no-cache');
-  res.json(data().catalog || {});
+  const c = data().catalog || {};
+  const productEntries = Object.fromEntries(Object.entries(c.productEntries || {}).map(([slug, p]) => [slug, p.status === 'draft' || p.status === 'archived' || (p.status === 'scheduled' && Date.parse(p.launchAt) > Date.now()) ? { slug, groupId: p.groupId, status: 'draft' } : p]));
+  res.json({ ...c, productEntries });
+});
+catalogRouter.get('/media/:name', async (req, res, next) => {
+  try {
+    const file = await readCatalogMedia(req.params.name);
+    if (!file) return res.status(404).json({ error: 'Image not found.' });
+    res.set({ 'Content-Type': file.type, 'Cache-Control': 'public, max-age=604800, immutable', 'Cross-Origin-Resource-Policy': 'cross-origin', 'X-Content-Type-Options': 'nosniff' });
+    res.send(file.body);
+  } catch (err) { next(err); }
 });
 
 // The editable parts of the website: products, home page sections, reviews, categories.
@@ -135,6 +147,8 @@ ordersRouter.post('/', orderLimit, async (req, res, next) => {
     const items = cleanItems(body.items);
     const payment = body.payment === 'upi' ? 'upi' : 'cod';
     await checkDestination(customer.pin, payment);
+    await withCatalogLock(async () => {
+    const inventory = prepareCustomOrder(items, body.designs, str(body.coupon, 30));
     const subtotal = Math.round(items.reduce((n, i) => n + (i.unit == null ? 0 : i.unit * i.qty), 0) * 100) / 100; // always worked out here
     // A coupon is checked again here: the amount is never taken from the browser.
     const code = str(body.coupon, 30).toUpperCase();
@@ -156,30 +170,36 @@ ordersRouter.post('/', orderLimit, async (req, res, next) => {
     if (uploads.length && process.env.R2_REQUIRED === 'true' && !r2Enabled) {
       throw Object.assign(new Error('Custom design storage is not configured yet. Please try again later.'), { status: 503, expose: true });
     }
+    let rollbackInventory = () => {};
     // The artwork is stored before the order is accepted, so an order never points at a file that was not saved.
     try {
       const results = await Promise.allSettled(uploads.map((u) => saveArtwork(id, u.name, u.buf)));
       if (results.some((r) => r.status === 'rejected')) throw new Error('One or more design files could not be saved.');
     } catch (err) {
+      rollbackInventory();
       console.error('Could not store artwork:', err?.message || err);
       await deleteArtwork(id).catch((cleanupError) => console.error('Could not remove incomplete artwork:', cleanupError.message));
       throw Object.assign(new Error('We could not save your artwork just now. Please try again in a minute.'), { status: 503, expose: true });
     }
+    // Reserve only after uploads finish; no await separates stock changes from the order record.
+    rollbackInventory = reserveInventory(inventory);
     const now = new Date().toISOString();
     const order = {
-      id, createdAt: now, status: 'placed', customer, payment, items, designs, subtotal, coupon, discount, total: Math.round((subtotal - discount) * 100) / 100, unpriced: items.filter((i) => i.unit == null).length,
+      id, createdAt: now, status: 'placed', customer, payment, items, designs, inventory, subtotal, coupon, discount, total: Math.round((subtotal - discount) * 100) / 100, unpriced: items.filter((i) => i.unit == null).length,
       wishlist, paymentStatus: payment === 'cod' ? 'cod' : 'pending', assetStorage: r2Enabled ? 'r2' : 'local', adminNote: '', history: [{ at: now, status: 'placed', by: 'customer' }],
     };
     data().orders.unshift(order);
     if (found && coupon) found.used += 1;
     audit('customer', 'order.placed', `${id} · ${customer.name}`);
     try { await save(); } catch (err) {
+      rollbackInventory();
       data().orders = data().orders.filter((o) => o !== order);
       if (found && coupon) found.used -= 1;
       await deleteArtwork(id).catch((cleanupError) => console.error('Incomplete order artwork cleanup failed:', cleanupError.message));
       throw Object.assign(new Error('Your order could not be saved. Please try again shortly.'), { status: 503, expose: true });
     }
     res.status(201).json({ id, placedAt: now, subtotal, discount, total: order.total, unpriced: order.unpriced });
+    });
   } catch (err) {
     next(err);
   }

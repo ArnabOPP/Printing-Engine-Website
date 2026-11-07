@@ -277,12 +277,13 @@ export default function Checkout() {
                   {i.detail && <small>{i.detail}</small>}
                   <div className="co-item-row">
                     <div className="co-step">
-                      <button type="button" onClick={() => setQty(i.id, i.qty - 1)} disabled={i.qty <= 1} aria-label={`Fewer ${i.name}`}><Minus size={13} /></button>
+                      <button type="button" onClick={() => setQty(i.id, i.qty - 1)} disabled={i.qty <= 1 || Object.keys(i.config?.sizes || {}).length > 0} aria-label={`Fewer ${i.name}`}><Minus size={13} /></button>
                       <output aria-label={`${i.name} quantity`}>{i.qty}</output>
-                      <button type="button" onClick={() => setQty(i.id, i.qty + 1)} aria-label={`More ${i.name}`}><Plus size={13} /></button>
+                      <button type="button" disabled={Object.keys(i.config?.sizes || {}).length > 0} onClick={() => setQty(i.id, i.qty + 1)} aria-label={`More ${i.name}`}><Plus size={13} /></button>
                     </div>
                     <button type="button" className="co-remove" onClick={() => remove(i.id)} aria-label={`Remove ${i.name}`}><Trash2 size={14} /></button>
                   </div>
+                  {Object.keys(i.config?.sizes || {}).length > 0 && <small>Size quantities were set in the design studio.</small>}
                 </div>
                 <b>{i.unit != null ? rupees(i.unit * i.qty) : 'At confirmation'}</b>
               </li>

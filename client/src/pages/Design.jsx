@@ -11,6 +11,7 @@ import { ShapeSvg, shapeList } from '../studio/shapes.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { quote, sheetQuote, rupees, fmtRate, layerSize, PHOTO_WIDTH_IN } from '../studio/pricing.js';
 import { garmentFor } from '../studio/garments.js';
+import { customQuote } from '../../../shared/customQuote.js';
 import { flushSync } from 'react-dom';
 import { saveDesignAsset } from '../studio/designAssets.js';
 
@@ -25,7 +26,7 @@ const FLAT_AREA = { left: 0, top: 0, width: 100, height: 100 };
 
 // `areas` are the normal-print areas of the garment being printed (see studio/garments.js).
 const areaFor = (isTee, mode, side, areas) => {
-  if (!isTee) return FLAT_AREA;
+  if (!isTee) return areas?.[side] || FLAT_AREA;
   // Sleeves keep their own small print area, even in full body print.
   if (side === 'left' || side === 'right') return areas[side];
   return mode === 'full' ? FULL_AREA : areas[side];
@@ -353,7 +354,7 @@ function Chrome({ layer, areaRef, onBegin, onChange }) {
 function Studio({ product, cfg, slug }) {
   const { add: addToCart } = useCart();
   const isTee = product.category === 'T-Shirts';
-  const garment = garmentFor(product); // which photos and print areas to use (tee or polo)
+  const garment = garmentFor(product, cfg.colour); // which photos and print areas to use (tee or polo)
   const hex = product.colors.find((c) => c.name === cfg.colour)?.hex || '#ffffff';
   const onLight = isLight(hex);
   const ink = onLight ? '#161616' : '#ffffff';
@@ -395,7 +396,7 @@ function Studio({ product, cfg, slug }) {
   const areaAspect = (area.width / area.height) * aspect; // width / height of the print area
   const hUnits = 100 / areaAspect; // sheet height in sheet-width units
   // Inches per "area-width unit": exact on a sheet, an estimate on a T-shirt (see studio/pricing.js).
-  const inPerUnit = sheet ? sheet.w / 25.4 / 100 : isTee ? ((area.width / 100) * PHOTO_WIDTH_IN) / 100 : null;
+  const inPerUnit = sheet ? sheet.w / 25.4 / 100 * area.width / 100 : isTee ? ((area.width / 100) * (product.mockups?.photoWidthIn || PHOTO_WIDTH_IN)) / 100 : null;
   const gapUnits = (l) => (l.gap ?? 0.1) / inPerUnit; // gap between copies, in sheet-width units
   const copiesOf = (l) => (sheet && l.repeat ? repeatCopies(l, hUnits, gapUnits(l)) : null);
   // The copies that are drawn: all that fit, or only as many as asked for (the original counts as one).
@@ -405,32 +406,9 @@ function Studio({ product, cfg, slug }) {
   };
   const totalLayers = sides.reduce((n, s) => n + design[s].length, 0);
   // Price estimate (only for products that have prices set in printProducts.js).
-  const priced = useMemo(
-    () => (isTee && product.pricing
-      ? quote({
-        pricing: product.pricing,
-        material: cfg.material,
-        method: cfg.method,
-        design,
-        mode,
-        quantity: cfg.quantity,
-        areaOf: (s) => areaFor(true, mode, s, garment.areas),
-      })
-      : null),
-    [isTee, product.pricing, garment, design, mode, cfg.quantity, cfg.material, cfg.method],
-  );
-  // Price estimate for a printing sheet (DTF, Sublimation, UV DTF), by artwork area or by sheet.
-  const sheetPriced = sheet && product.sheetPrice
-    ? sheetQuote({
-      sheetPrice: product.sheetPrice,
-      sheet,
-      items: design.front.map((l) => {
-        const { w, h } = layerSize(l);
-        return { sqIn: w * h * inPerUnit * inPerUnit, copies: 1 + (shownCopies(l)?.length || 0) };
-      }),
-      quantity: cfg.quantity,
-    })
-    : null;
+  const calculatedPrice = useMemo(() => customQuote(product, cfg, design), [product, cfg, design]);
+  const priced = product.pricing ? calculatedPrice : null;
+  const sheetPriced = product.sheetPrice ? calculatedPrice : null;
   const garmentSrc = garment.photos[side];
   const sleeveView = isSleeve;
   const zoom = sleeveView ? { z: SLEEVE_ZOOM, cx: area.left + area.width / 2, cy: area.top + area.height / 2 } : null;
@@ -621,7 +599,7 @@ function Studio({ product, cfg, slug }) {
       qty: cfg.quantity,
       unit: price ? price.perPiece : null,
       slug,
-      config: cfg,
+      config: { ...cfg, mockupVersion: product.updatedAt || null },
       unique: true, // every design is its own line
       designId,
     });
@@ -636,7 +614,7 @@ function Studio({ product, cfg, slug }) {
     }
   };
 
-  const price = priced || sheetPriced; // whichever estimate applies to this product
+  const price = calculatedPrice; // whichever estimate applies to this product
   const label = cfg.product;
   const sizeSummary = cfg.sizes ? Object.entries(cfg.sizes).map(([s, n]) => `${s} × ${n}`).join(', ') : '';
   const layerName = (l) => (l.type === 'text' ? `“${l.text.value.slice(0, 18) || 'Text'}”` : l.type === 'image' ? l.image.name : (shapeList.find((s) => s.kind === l.shape.kind)?.label || 'Shape'));
@@ -763,10 +741,10 @@ function Studio({ product, cfg, slug }) {
               >
                 {isTee ? (
                   <div className="st-garment">
-                    <TeePhoto src={garmentSrc} colour={hex} alt={`${label}, ${sideLabels[side]}`} />
+                    {garment.tint ? <TeePhoto src={garmentSrc} colour={hex} alt={`${label}, ${sideLabels[side]}`} /> : <img className="st-plain-photo" src={garmentSrc} alt={`${label}, ${sideLabels[side]}`} />}
                   </div>
                 ) : (
-                  <div className="st-flat" style={{ background: hex }} />
+                  <div className="st-flat" style={{ background: hex }}>{garmentSrc && <img className="st-plain-photo" src={garmentSrc} alt={`${label} mockup`} />}</div>
                 )}
                 <div
                   ref={areaRef}
@@ -1010,6 +988,8 @@ function Studio({ product, cfg, slug }) {
               </div>
             )}
 
+            {price?.saving > 0 && <div className="st-card"><div className="st-price-row"><span>Product offer · save {rupees(price.saving)} per piece</span><b>{rupees(price.total)} total</b></div></div>}
+            {price && !priced && !sheetPriced && <section className="st-card"><h3>Price</h3><p>{rupees(price.perPiece)} per piece · {rupees(price.total)} total</p></section>}
             {sheetPriced && (
               <div className="st-price" aria-label="Price estimate">
                 {sheetPriced.per === 'sqin' ? (

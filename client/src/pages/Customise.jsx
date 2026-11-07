@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Minus, Plus, Ruler, User, Users, Baby, Shirt } from 'lucide-react';
-import { printProducts, baseFor, sheetCost } from '../printProducts.js';
+import { printProducts, baseFor, sheetCost, stockFor, AUDIENCE_SIZES } from '../printProducts.js';
 import { isLightHex, fmtRate } from '../studio/pricing.js';
 import { garmentFor } from '../studio/garments.js';
 import { productIcons } from '../productIcons.js';
@@ -84,7 +84,7 @@ export default function Customise() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
     setMaterial(product?.fabric?.options?.[0] ?? null);
-    setColour(product?.colors?.[0]?.name ?? null);
+    setColour(product?.colors?.find((c) => c.available !== false)?.name ?? null);
     setMethod(product?.pricing ? Object.keys(product.pricing.methods)[0] : null);
     setSheet(product?.sheets?.[0]?.id ?? null);
     setAudience(null);
@@ -115,6 +115,10 @@ export default function Customise() {
   if (isApparel && !audience) missing.push('who it is for');
   if (canCustom && sheet === 'custom' && !customOk) missing.push(`a custom size between ${CUSTOM_MIN} and ${CUSTOM_MAX} inches`);
   if (total < 1) missing.push(isApparel ? 'at least one size' : 'a quantity');
+  if (product.available === false) missing.push('this product to come back in stock');
+  if (total < (product.minQty || 1) || total > (product.maxQty || 10000)) missing.push(`a quantity between ${product.minQty || 1} and ${product.maxQty || 10000}`);
+  const chosenMaterial = material || product.fabric?.material || '';
+  if (product.stockTracked && (isApparel ? Object.entries(sizeQty).some(([size, qty]) => qty > stockFor(product, colour, chosenMaterial, size)) : total > stockFor(product, colour, chosenMaterial))) missing.push('an available colour, material and size quantity');
   const ready = missing.length === 0;
 
   const setSize = (size, delta) =>
@@ -128,6 +132,7 @@ export default function Customise() {
   // A method that only works on light colours (sublimation) is dropped when a dark colour is picked.
   const pickColour = (c) => {
     setColour(c.name);
+    setSizeQty({});
     if (product.pricing?.methods[activeMethod]?.lightOnly && !isLightHex(c.hex)) setMethod(methodIds[0]);
   };
   const lightColour = colourObj ? isLightHex(colourObj.hex) : true;
@@ -145,6 +150,7 @@ export default function Customise() {
     if (!ready) return;
     const config = {
       product: label,
+      productSlug: product.slug,
       category: product.category,
       // A product with a single quality has nothing to choose, so its fixed material is carried through.
       material: materials.length === 0 ? (product.fabric?.material ?? null) : material,
@@ -178,6 +184,9 @@ export default function Customise() {
       <div className="opt-layout">
         <div className="opt-main">
           <h1>Set up your {product.name}</h1>
+          {product.description && <p className="opt-lead">{product.description}</p>}
+          {product.available === false && <p className="co-alert" role="status">This product is currently out of stock.</p>}
+          {product.leadDays != null && <p className="opt-muted">Production: approximately {product.leadDays} days before dispatch. Minimum {product.minQty || 1} piece(s).</p>}
           <p className="opt-lead">Pick the options below. You can change everything again before you order.</p>
 
           {sheets.length > 0 && (
@@ -238,9 +247,9 @@ export default function Customise() {
               <StepHead n={stepNo('colour')} title="Colour" hint={colour ? `Selected: ${colour}` : 'Choose a colour'} done={!!colour} />
               <div className="opt-swatches" role="radiogroup" aria-label="Colour">
                 {colours.map((c) => (
-                  <button key={c.name} role="radio" aria-checked={c.name === colour} className={c.name === colour ? 'on' : ''} onClick={() => pickColour(c)}>
+                  <button key={c.name} role="radio" aria-checked={c.name === colour} disabled={c.available === false} className={c.name === colour ? 'on' : ''} onClick={() => pickColour(c)}>
                     <i style={{ background: c.hex }} />
-                    <span>{c.name}</span>
+                    <span>{c.name}{c.available === false ? ' · unavailable' : ''}</span>
                   </button>
                 ))}
               </div>
@@ -310,13 +319,13 @@ export default function Customise() {
               />
               {aud ? (
                 <ul className="opt-sizes">
-                  {aud.sizes.map((s) => (
+                  {(product.sizesByAudience?.[audience] || aud.sizes).map((s) => (
                     <li key={s} className={sizeQty[s] ? 'has' : ''}>
-                      <span className="opt-size">{s}</span>
+                      <span className="opt-size">{s}{product.stockTracked && <small> · {stockFor(product, colour, chosenMaterial, s)} available</small>}</span>
                       <div className="opt-step">
                         <button onClick={() => setSize(s, -1)} aria-label={`Fewer ${s}`} disabled={!sizeQty[s]}><Minus size={14} /></button>
                         <output aria-label={`${s} quantity`}>{sizeQty[s] || 0}</output>
-                        <button onClick={() => setSize(s, 1)} aria-label={`More ${s}`}><Plus size={14} /></button>
+                        <button onClick={() => setSize(s, 1)} disabled={product.stockTracked && (sizeQty[s] || 0) >= stockFor(product, colour, chosenMaterial, s)} aria-label={`More ${s}`}><Plus size={14} /></button>
                       </div>
                     </li>
                   ))}
@@ -349,11 +358,11 @@ export default function Customise() {
         <aside className="opt-summary" aria-label="Your selection">
           <div className="opt-preview">
             {isApparel ? (
-              <TeePhoto
-                src={garmentFor(product).photos[view]}
+              garmentFor(product, colour).tint ? <TeePhoto
+                src={garmentFor(product, colour).photos[view]}
                 colour={colourObj?.hex || '#ffffff'}
                 alt={`${label}, ${view} view${colour ? `, ${colour}` : ''}`}
-              />
+              /> : <img src={garmentFor(product, colour).photos[view]} alt={`${label}, ${view} view`} />
             ) : product.img ? (
               <img src={product.img} alt="" />
             ) : (

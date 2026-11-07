@@ -16,6 +16,10 @@ import { firebaseLogin } from '../firebaseLogin.js';
 import { firebaseAdminMode, firebaseAccessStore } from '../firebaseAdmin.js';
 import { ADMIN_COLLECTION } from '../firebaseAccess.js';
 import { customItems, orderType } from '../orderType.js';
+import customProductsRouter from './customProducts.js';
+import { withCatalogLock } from '../catalogLock.js';
+import { restockCancelledOrder } from '../inventory.js';
+import { cleanupDispatchedAssets } from '../assetRetention.js';
 
 const router = Router();
 
@@ -58,6 +62,7 @@ router.post('/logout', (req, res) => {
 
 // Everything below needs a signed-in admin.
 router.use(requireAdmin);
+router.use('/custom-products', customProductsRouter);
 
 router.get('/me', (req, res) => res.json({ admin: publicAdmin(req.admin), statuses: STATUSES }));
 
@@ -158,38 +163,50 @@ router.post('/orders/:id/shipment/reset-attempt', requireOwner, async (req, res,
 router.patch('/orders/:id', async (req, res, next) => {
   try {
     const o = findOrder(req.params.id);
-    await withShipmentLock(o, async () => {
+    await withShipmentLock(o, () => withCatalogLock(async () => {
+      const previousOrder = structuredClone(o);
+      const previousCatalog = structuredClone(data().catalog);
       const { status, adminNote } = req.body || {};
       if (status !== undefined) {
         if (!STATUSES.includes(status)) throw bad('Unknown status.');
+        if (status === 'cancelled' && o.shipment && !o.shipment.cancelled && !['cancelled','returned'].includes(o.shipment.stage)) throw bad('Cancel the courier shipment before cancelling this order.');
+        if (o.inventoryRestoredAt && status !== 'cancelled') throw bad('This order was cancelled and its stock restored. Place a new order instead of reopening it.');
         if (status !== o.status) {
           o.status = status;
           o.history.push({ at: new Date().toISOString(), status, by: req.admin.email });
-          audit(req.admin.email, 'order.status', `${o.id} → ${status}`);
+          audit(req.admin.email, 'order.status', `${o.id} -> ${status}`);
         }
       }
       if (adminNote !== undefined) { o.adminNote = str(adminNote, 2000); audit(req.admin.email, 'order.note', o.id); }
-      await save();
-    });
+      if (o.status === 'cancelled') restockCancelledOrder(o);
+      try { await save(); } catch (err) {
+        data().catalog = previousCatalog;
+        for (const key of Object.keys(o)) delete o[key];
+        Object.assign(o, previousOrder);
+        throw err;
+      }
+    }));
     res.json({ order: o });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 });
 
 router.delete('/orders/:id', requireOwner, async (req, res, next) => {
   try {
     const o = findOrder(req.params.id);
-    await withShipmentLock(o, async () => {
-      await deleteArtwork(o.id);
+    await withShipmentLock(o, () => withCatalogLock(async () => {
+      if (o.shipment && !o.shipment.cancelled && !['delivered','returned','cancelled'].includes(o.shipment.stage)) throw bad('Cancel the active courier shipment before deleting this order.');
+      const previousOrders = [...data().orders];
+      const previousCatalog = structuredClone(data().catalog);
+      const restoredAt = o.inventoryRestoredAt;
+      restockCancelledOrder(o);
       data().orders = data().orders.filter((x) => x !== o);
+      data().pendingFileDeletes = [...new Set([...(data().pendingFileDeletes || []), o.id])];
       audit(req.admin.email, 'order.deleted', o.id);
-      await save();
-    });
+      try { await save(); } catch (err) { data().orders = previousOrders; data().catalog = previousCatalog; o.inventoryRestoredAt = restoredAt; data().pendingFileDeletes = data().pendingFileDeletes.filter((id) => id !== o.id); throw err; }
+      cleanupDispatchedAssets().catch((err) => console.error('Deleted order cleanup pending:', err.message));
+    }));
     res.json({ ok: true });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 });
 
 // Customers' uploaded artwork. Only signed-in admins can open it, and it is always served as a plain download-safe image.
@@ -420,10 +437,14 @@ router.get('/catalog', (req, res) => res.json({ catalog: data().catalog || {} })
 
 router.put('/catalog', async (req, res, next) => {
   try {
-    data().catalog = cleanCatalog(req.body?.catalog || {});
-    audit(req.admin.email, 'catalog.updated');
-    await save();
-    res.json({ catalog: data().catalog });
+    await withCatalogLock(async () => {
+      const previous = data().catalog;
+      const { productEntries, stock, revision } = previous;
+      data().catalog = { ...cleanCatalog(req.body?.catalog || {}), productEntries, stock, revision: (revision || 0) + 1 };
+      audit(req.admin.email, 'catalog.updated');
+      try { await save(); } catch (err) { data().catalog = previous; throw err; }
+      res.json({ catalog: data().catalog });
+    });
   } catch (err) {
     next(err);
   }

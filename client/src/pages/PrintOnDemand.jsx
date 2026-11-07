@@ -4,7 +4,7 @@ import {
   Search, Check, ArrowRight, ArrowUpRight, Shirt, Printer, Coffee, CreditCard, Sticker, FileText,
   ChevronRight, MousePointerClick, Upload, PackageCheck,
 } from 'lucide-react';
-import { printGroups, fromBase, printFrom } from '../printProducts.js';
+import { printGroups, fromBase, printFrom, discounted } from '../printProducts.js';
 import { fmtRate } from '../studio/pricing.js';
 import { productIcons as icons } from '../productIcons.js';
 import CustomSections from '../components/CustomSections.jsx';
@@ -63,6 +63,9 @@ function ProductCard({ item, index, selected, onSelect }) {
       <span className="pod-card-body">
         <strong>{item.name}</strong>
         {item.spec && <small>{item.spec}</small>}
+        {item.available === false && <small>Out of stock</small>}
+        {item.newUntil && Date.parse(item.newUntil) > Date.now() && <small>New launch</small>}
+        {item.discount?.enabled && discounted(100, item.discount) < 100 && <small>{item.discount.type === 'percent' ? `${item.discount.value}% off` : `₹${item.discount.value} off`} · applied in the design studio</small>}
         {item.colors.length > 0 && (
           <span className="pod-colors" role="img" aria-label={`Colours: ${item.colors.map((c) => c.name).join(', ')}`}>
             {item.colors.slice(0, 6).map((c) => (
@@ -79,6 +82,7 @@ function ProductCard({ item, index, selected, onSelect }) {
               : <><b>₹{fmtRate(item.sheetPrice.rate)}</b> <small>per sq inch</small></>}
           </span>
         )}
+        {item.fixedPrice != null && !item.pricing && !item.sheetPrice && <span className="pod-price">From <b>₹{discounted(item.fixedPrice, item.discount)}</b>{discounted(item.fixedPrice, item.discount) !== item.fixedPrice && <small> <s>₹{item.fixedPrice}</s></small>}</span>}
         {item.fabric && (
           <span className="pod-fabric">
             <b>Material</b>
