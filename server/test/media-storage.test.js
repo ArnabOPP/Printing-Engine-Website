@@ -9,7 +9,7 @@ import jwt from 'jsonwebtoken';
 
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'pe-media-test-'));
 const assets=path.join(dir,'builtins');fs.mkdirSync(assets);
-Object.assign(process.env,{DATA_DIR:dir,SHOP_ASSET_DIR:assets,ADMIN_AUTH_PROVIDER:'local',JWT_SECRET:'media-test-secret-at-least-32-characters',R2_BUCKET:'private-test',R2_PUBLIC_BUCKET:'public-test',R2_PUBLIC_BASE_URL:'https://images.test',R2_ACCOUNT_ID:'test',R2_ACCESS_KEY_ID:'test',R2_SECRET_ACCESS_KEY:'test',R2_REQUIRED:'true'});
+Object.assign(process.env,{DATA_DIR:dir,SHOP_ASSET_DIR:assets,ADMIN_AUTH_PROVIDER:'local',JWT_SECRET:'media-test-secret-at-least-32-characters',R2_BUCKET:'private-test',R2_PUBLIC_BUCKET:'public-test',R2_PUBLIC_BASE_URL:'https://images.test',R2_PUBLIC_DELIVERY:'true',R2_ACCOUNT_ID:'test',R2_ACCESS_KEY_ID:'test',R2_SECRET_ACCESS_KEY:'test',R2_REQUIRED:'true'});
 const files=await import('../src/files.js');
 const objects=new Map();const writes=[];
 let failWrite=false;let dispatchOnUpload=null;

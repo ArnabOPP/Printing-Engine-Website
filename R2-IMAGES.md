@@ -7,7 +7,7 @@ The shop uses R2 for built-in product photos, home-page photos, logos, size char
 1. Create a Standard R2 bucket named `printing-engine-public`. Keep the existing `R2_BUCKET` private.
 2. Attach `images.printingengine.in` in the new bucket's Settings → Custom Domains. Cloudflare requires the domain's zone in the same account. If DNS is not managed by Cloudflare, continue using the API image route until DNS setup is arranged; preserve all existing website, API, mail and verification records during any DNS move.
 3. Give the R2 access token Object Read & Write access to both buckets. Update its access and secret keys in Railway if replaced.
-4. Add Railway variables `R2_PUBLIC_BUCKET=printing-engine-public` and `R2_PUBLIC_BASE_URL=https://images.printingengine.in`. Keep `R2_BUCKET` unchanged.
+4. Add Railway variables `R2_PUBLIC_BUCKET=printing-engine-public` and `R2_PUBLIC_BASE_URL=https://images.printingengine.in`. Keep `R2_BUCKET` unchanged. Leave `R2_PUBLIC_DELIVERY` unset until the domain and CORS are ready; unset means public images use the existing private bucket and API route regardless of these optional variables.
 5. In the PUBLIC bucket Settings → CORS policy, save:
 
 ```json
@@ -22,7 +22,7 @@ The shop uses R2 for built-in product photos, home-page photos, logos, size char
 ]
 ```
 
-6. Open `/admin/image-storage`, run Sync images to R2 and refresh status. Verify a product photo and the design studio. Public images use redirects to the custom domain after migration; the API remains the fallback when no public domain is configured. Never attach a public domain to the private customer bucket.
+6. After DNS, domain and CORS are working, set `R2_PUBLIC_DELIVERY=true`. Open `/admin/image-storage`, run Sync images to R2 and refresh status. Verify a product photo and the design studio. Public images use redirects to the custom domain after migration; the API remains the fallback when direct delivery is disabled. Never attach a public domain to the private customer bucket.
 
 ## Layout and migration
 

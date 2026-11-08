@@ -12,7 +12,12 @@ export async function servePublicImage(req,res,next,kind,name){
     const direct=publicImageUrl(kind,name);
     res.set({'Cross-Origin-Resource-Policy':'cross-origin','Access-Control-Allow-Origin':'*','X-Content-Type-Options':'nosniff'});
     if(direct)return res.set('Cache-Control','public, max-age=300').redirect(302,direct);
-    let file=kind==='catalog'?await readCatalogMedia(name):await readPublicMedia(kind,name);
+    let file;
+    try{file=kind==='catalog'?await readCatalogMedia(name):await readPublicMedia(kind,name);}
+    catch(err){
+      if(kind!=='assets'||!fs.existsSync(path.join(ASSET_DIR,name)))throw err;
+      console.error('R2 image read failed; serving bundled shop image:',err.name);
+    }
     if(!file&&kind==='assets'){
       const local=path.join(ASSET_DIR,name);
       if(fs.existsSync(local)&&fs.statSync(local).isFile())file={body:await fs.promises.readFile(local),type:typeOf(name),storage:'bundled'};

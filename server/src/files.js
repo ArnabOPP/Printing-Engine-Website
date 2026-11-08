@@ -23,8 +23,9 @@ const client = r2Enabled
   })
   : null;
 export const r2Client = client;
-export const publicBucket = process.env.R2_PUBLIC_BUCKET || R2_BUCKET;
-export const publicBase = process.env.R2_PUBLIC_BUCKET && process.env.R2_PUBLIC_BUCKET !== R2_BUCKET && /^https:\/\//.test(process.env.R2_PUBLIC_BASE_URL || '') ? process.env.R2_PUBLIC_BASE_URL.replace(/\/$/,'') : '';
+const directPublic = process.env.R2_PUBLIC_DELIVERY === 'true';
+export const publicBucket = directPublic ? process.env.R2_PUBLIC_BUCKET || R2_BUCKET : R2_BUCKET;
+export const publicBase = directPublic && process.env.R2_PUBLIC_BUCKET && process.env.R2_PUBLIC_BUCKET !== R2_BUCKET && /^https:\/\//.test(process.env.R2_PUBLIC_BASE_URL || '') ? process.env.R2_PUBLIC_BASE_URL.replace(/\/$/,'') : '';
 
 const key = (orderId, name) => `artwork/${orderId}/${name}`;
 const TYPES = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', svg: 'image/svg+xml', avif: 'image/avif' };
