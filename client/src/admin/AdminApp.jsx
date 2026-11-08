@@ -76,12 +76,10 @@ function Login({ onDone, customOnly = false }) {
 const links = [
   ['/admin', 'Dashboard', LayoutDashboard, true],
   ['/admin/orders', 'Orders', Package],
-  ['/custom-admin', 'Custom admin', Shirt],
   ['/admin/customers', 'Customers', Users],
   ['/admin/home', 'Home page & content', Home],
   ['/admin/products', 'Shop products', ShoppingBag],
   ['/admin/coupons', 'Coupons & offers', BadgePercent],
-  ['/admin/catalog', 'Customise & prices', Shirt],
   ['/admin/team', 'Admin team', UserCog, false, 'owner'],
   ['/admin/activity', 'Activity', Activity],
   ['/admin/account', 'My account', Settings],
@@ -152,7 +150,7 @@ export default function AdminApp({ customOnly = false }) {
           <Route path="orders" element={<Orders key="all" admin={admin} />} />
           <Route path="custom-orders" element={<Navigate to={`/custom-admin${location.search}`} replace />} />
           <Route path="customers" element={<Customers />} />
-          <Route path="catalog" element={<Catalog />} />
+          <Route path="catalog" element={<Navigate to="/custom-admin/catalog" replace />} />
           <Route path="home" element={<HomePage />} />
           <Route path="products" element={<Products />} />
           <Route path="coupons" element={<Coupons />} />
