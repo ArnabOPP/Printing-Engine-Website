@@ -30,7 +30,12 @@ export default function ProductReviews({ productKey, onSummary }) {
     if(user) user.getIdToken().then((token) => api(`/api/reviews/mine?product=${encodeURIComponent(productKey)}`,{headers:{Authorization:`Bearer ${token}`}}))
       .then((r) => {if(live) setSubmitted(r.submitted);}).catch(() => {if(live) setSubmitted(false);});
     return () => {live=false;};
-  },[user,productKey]);
+  },[user,productKey,refresh]);
+  useEffect(() => {
+    const refreshOnFocus=()=>{setRefresh((n)=>n+1);setMessage('');};
+    window.addEventListener('focus',refreshOnFocus);
+    return ()=>window.removeEventListener('focus',refreshOnFocus);
+  },[]);
   const submit = async (e) => {
     e.preventDefault(); if(!user) return;
     setBusy(true);setError('');setMessage('');
@@ -44,6 +49,7 @@ export default function ProductReviews({ productKey, onSummary }) {
   };
   return <section className="product-reviews" aria-label="Customer reviews">
     <h2>Customer reviews</h2>
+    <button type="button" className="btn" disabled={busy} onClick={()=>{setRefresh((n)=>n+1);setMessage('');}}>Refresh reviews</button>
     {data && <p>{data.count ? `${data.average} out of 5 · ${data.count} ${data.count===1?'review':'reviews'}` : 'No reviews yet. Share your experience with this product.'}</p>}
     {!data && !error && <p role="status">Loading reviews…</p>}
     {data?.reviews.map((r) => <article className="customer-review" key={r.id}>

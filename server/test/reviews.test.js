@@ -58,16 +58,19 @@ test('photo uploads decode real images, strip EXIF and resize; corrupt and SVG p
   const meta=await sharp(Buffer.from(await image.arrayBuffer())).metadata();
   assert.equal(meta.format,'webp');assert.equal(meta.width,1600);assert.equal(meta.exif,undefined);
 });
-test('only admins can moderate; removal hides review, photos and rating, while restore reverses it',async()=>{
+test('only admins can delete; deletion erases review and photos and allows a new opinion',async()=>{
   const route=`/admin/reviews/${photoReview.id}`;
-  assert.equal((await req(route,{method:'PATCH',body:{status:'removed'}})).status,401);
-  assert.equal((await req(route,{admin:true,method:'PATCH',body:{status:'removed',reason:'Abusive content'}})).status,200);
+  assert.equal((await req(route,{method:'DELETE'})).status,401);
+  assert.equal((await req(route,{admin:true,method:'DELETE'})).status,200);
   const listing=await(await req('/reviews?product=shop%3Ad1')).json();
   assert.equal(listing.count,2);assert.equal(listing.average,5);assert.ok(!listing.reviews.some((r)=>r.id===photoReview.id));
   assert.equal((await req(photoReview.photos[0].replace('/api/reviews','/reviews'))).status,404);
-  assert.equal((await req(`/admin/reviews/${photoReview.id}/photos/photo-1.webp`,{admin:true})).status,200);
-  assert.equal((await req('/reviews',{body:review(),token:'photo-customer'})).status,409);
-  assert.equal((await req(route,{admin:true,method:'PATCH',body:{status:'published'}})).status,200);
+  assert.equal((await req(`/admin/reviews/${photoReview.id}/photos/photo-1.webp`,{admin:true})).status,404);
+  assert.ok(!data().reviews.some((r)=>r.id===photoReview.id));
+  assert.ok(!fs.existsSync(path.join(dir,'uploads',`review-${photoReview.id}`)));
+  assert.equal((await(await req('/reviews/mine?product=shop%3Ad1',{token:'photo-customer'})).json()).submitted,false);
+  assert.equal((await req('/reviews',{body:review(),token:'photo-customer'})).status,201);
+  assert.equal((await req(route,{admin:true,method:'PATCH',body:{status:'published'}})).status,400);
   assert.equal((await(await req('/reviews?product=shop%3Ad1')).json()).count,3);
 });
 test('public pagination exposes no private identity or moderation details and renamed products retain reviews',async()=>{
@@ -84,5 +87,30 @@ test('R2-required mode fails closed for photos and failed persistence does not a
   const count=data().reviews.length;
   const fail=mock.method(fs.promises,'rename',async()=>{throw new Error('Disk unavailable');});
   try {assert.equal((await req('/reviews',{body:review(),token:'no-disk'})).status,500);assert.equal(data().reviews.length,count);}finally{fail.mock.restore();}
+});
+test('failed deletion persistence preserves the review and photos; old admin clients delete permanently',async()=>{
+  const target=data().reviews.find((r)=>r.uid==='photo-customer');
+  const fail=mock.method(fs.promises,'rename',async()=>{throw new Error('Disk unavailable');});
+  try {
+    assert.equal((await req(`/admin/reviews/${target.id}`,{admin:true,method:'DELETE'})).status,500);
+    assert.ok(data().reviews.includes(target));assert.equal(target.status,'published');
+    assert.equal((await(await req('/reviews/mine?product=shop%3Ad1',{token:'photo-customer'})).json()).submitted,true);
+  }finally{fail.mock.restore();}
+  assert.equal((await req(`/admin/reviews/${target.id}`,{admin:true,method:'PATCH',body:{status:'removed'}})).status,200);
+  assert.ok(!data().reviews.some((r)=>r.id===target.id));
+});
+test('legacy removed reviews are purged and failed cloud cleanup is retained for retry',async()=>{
+  const {purgeRemovedReviews,cleanupReviewPhotos}=await import('../src/reviewDeletion.js');
+  data().reviews.push({id:'rv_legacy',uid:'legacy-customer',status:'removed',productKey:'shop:d1',photos:['photo-1.webp'],assetStorage:'r2'});
+  await purgeRemovedReviews();
+  assert.ok(!data().reviews.some((r)=>r.id==='rv_legacy'));
+  assert.equal((await(await req('/reviews/mine?product=shop%3Ad1',{token:'legacy-customer'})).json()).submitted,false);
+  assert.ok(data().pendingReviewDeletes.some((j)=>j.id==='rv_legacy'));
+  await cleanupReviewPhotos({r2Available:true,remove:async()=>{throw new Error('R2 unavailable');}});
+  assert.ok(data().pendingReviewDeletes.some((j)=>j.id==='rv_legacy'));
+  const deleted=[];
+  await cleanupReviewPhotos({r2Available:true,remove:async(id)=>deleted.push(id)});
+  assert.deepEqual(deleted,['review-rv_legacy']);
+  assert.ok(!data().pendingReviewDeletes.some((j)=>j.id==='rv_legacy'));
 });
 test.after(async()=>{await new Promise((resolve)=>server.close(resolve));mock.restoreAll();});

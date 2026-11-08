@@ -15,6 +15,7 @@ import { pollActive } from './shipping.js';
 import { cleanupDispatchedAssets } from './assetRetention.js';
 import { acquireStoreLock } from './processLock.js';
 import { reviewsRouter } from './routes/reviews.js';
+import { purgeRemovedReviews, cleanupReviewPhotos } from './reviewDeletion.js';
 
 const releaseLock = acquireStoreLock();
 process.on('exit', releaseLock);
@@ -77,6 +78,7 @@ app.use((err, req, res, next) => {
   return res.status(500).json({ error: 'Something went wrong on our side.' });
 });
 
+await purgeRemovedReviews();
 const server = app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));
 server.on('error', (err) => { console.error('Server failed:', err.message); process.exitCode = 1; releaseLock(); });
 
@@ -86,7 +88,10 @@ polling.unref();
 pollActive().catch((e) => console.error('Initial tracking check failed:', e.message));
 // Retry interrupted deletions after restart and independently of courier polling.
 cleanupDispatchedAssets().catch((e) => console.error('Artwork cleanup failed:', e.message));
-const cleanup = setInterval(() => cleanupDispatchedAssets().catch((e) => console.error('Artwork cleanup failed:', e.message)), 60 * 1000);
+const cleanup = setInterval(() => {
+  cleanupDispatchedAssets().catch((e) => console.error('Artwork cleanup failed:', e.message));
+  cleanupReviewPhotos().catch((e) => console.error('Review photo cleanup failed:', e.message));
+}, 60 * 1000);
 cleanup.unref();
 let stopping = false;
 async function shutdown() {
