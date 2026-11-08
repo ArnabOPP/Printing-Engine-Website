@@ -43,4 +43,9 @@ export async function fileUrl(path) {
 }
 
 // Pictures the team uploads live on the shop's server (/uploads/…). Everything else is used as it is.
-export const assetUrl = (src) => (typeof src === 'string' && (src.startsWith('/uploads/') || src.startsWith('/api/catalog/media/')) ? `${BASE}${src}` : src);
+export const assetUrl = (src) => {
+  if(typeof src!=='string')return src;
+  if(src.startsWith('/uploads/')||src.startsWith('/api/catalog/media/')||src.startsWith('/api/media/'))return `${BASE}${src}`;
+  if(/^\/[A-Za-z0-9][A-Za-z0-9._ -]*\.(png|jpe?g|webp|gif|svg|avif)$/i.test(src))return `${BASE}/api/media/assets/${encodeURIComponent(src.slice(1))}`;
+  return src;
+};

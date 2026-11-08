@@ -47,6 +47,11 @@ data().admins.push({id:'staff',name:'Staff',email:'staff@test.example',role:'sta
 const cookie=`pe_admin=${jwt.sign({sub:'staff',tv:0},process.env.JWT_SECRET)}`;
 const app=express();app.use(express.json(),cookieParser());app.use('/api/media',mediaRouter);app.use('/uploads',uploadsRouter);app.use('/admin',adminRouter);app.use((err,req,res,next)=>res.status(err.status||500).json({error:err.message}));
 const server=app.listen(0,'127.0.0.1');await new Promise((resolve)=>server.once('listening',resolve));const base=`http://127.0.0.1:${server.address().port}`;
+test('public bucket variables alone cannot activate CDN delivery or change the default storage bucket',async()=>{
+  delete process.env.R2_PUBLIC_DELIVERY;
+  try{const defaults=await import('../src/files.js?api-default');assert.equal(defaults.publicBucket,'private-test');assert.equal(defaults.publicBase,'');defaults.r2Client.destroy();}
+  finally{process.env.R2_PUBLIC_DELIVERY='true';}
+});
 test('migration copies public assets and legacy images while originals and review photos stay private',async()=>{
   await syncAllImages();assert.equal(mediaStatus().lastSync.errorCount,0);
   for(const key of ['public-test/public/assets/product.png','public-test/public/uploads/old-upload.png',`public-test/public/catalog/${legacy}`,'public-test/public/uploads/earlier-r2.png','private-test/artwork/PE-local/art.png','private-test/artwork/review-rv_abc/photo-1.webp'])assert.ok(objects.has(key),key);

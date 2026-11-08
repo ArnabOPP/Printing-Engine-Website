@@ -10,6 +10,7 @@ import Catalog from './Catalog.jsx';
 import CustomProducts from './CustomProducts.jsx';
 import Products from './Products.jsx';
 import Reviews from './Reviews.jsx';
+import ImageStorage from './ImageStorage.jsx';
 import HomePage from './HomePage.jsx';
 import Coupons from './Coupons.jsx';
 import Team from './Team.jsx';
@@ -81,6 +82,7 @@ const links = [
   ['/admin/home', 'Home page & content', Home],
   ['/admin/products', 'Shop products', ShoppingBag],
   ['/admin/reviews', 'Product reviews', MessageSquare],
+  ['/admin/image-storage', 'Image storage', Store],
   ['/admin/coupons', 'Coupons & offers', BadgePercent],
   ['/admin/team', 'Admin team', UserCog, false, 'owner'],
   ['/admin/activity', 'Activity', Activity],
@@ -156,6 +158,7 @@ export default function AdminApp({ customOnly = false }) {
           <Route path="home" element={<HomePage />} />
           <Route path="products" element={<Products />} />
           <Route path="reviews" element={<Reviews />} />
+          <Route path="image-storage" element={<ImageStorage />} />
           <Route path="coupons" element={<Coupons />} />
           <Route path="team" element={admin.role === 'owner' ? <Team me={admin} /> : <Navigate to="/admin" replace />} />
           <Route path="activity" element={<ActivityLog />} />

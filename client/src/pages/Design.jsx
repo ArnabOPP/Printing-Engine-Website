@@ -14,6 +14,7 @@ import { garmentFor } from '../studio/garments.js';
 import { customQuote } from '../../../shared/customQuote.js';
 import { flushSync } from 'react-dom';
 import { saveDesignAsset } from '../studio/designAssets.js';
+import { assetUrl } from '../api.js';
 
 /* ---------- configuration ---------- */
 
@@ -409,7 +410,7 @@ function Studio({ product, cfg, slug }) {
   const calculatedPrice = useMemo(() => customQuote(product, cfg, design), [product, cfg, design]);
   const priced = product.pricing ? calculatedPrice : null;
   const sheetPriced = product.sheetPrice ? calculatedPrice : null;
-  const garmentSrc = garment.photos[side];
+  const garmentSrc = assetUrl(garment.photos[side]);
   const sleeveView = isSleeve;
   const zoom = sleeveView ? { z: SLEEVE_ZOOM, cx: area.left + area.width / 2, cy: area.top + area.height / 2 } : null;
 
@@ -574,6 +575,7 @@ function Studio({ product, cfg, slug }) {
     const { toPng } = await import('html-to-image');
     await document.fonts.ready;
     const mockups = {};
+    const prints = {};
     for (const view of (isTee ? sides : ['front'])) {
       if (!snapshot[view].length && totalLayers) continue;
       flushSync(() => setSide(view));
@@ -583,9 +585,20 @@ function Studio({ product, cfg, slug }) {
         pixelRatio: 2, backgroundColor: '#ffffff',
         filter: (node) => !node.classList?.contains('st-guide') && !node.classList?.contains('st-chrome') && !node.classList?.contains('st-empty'),
       });
+      const el=areaRef.current;
+      const width=el.offsetWidth;const height=el.offsetHeight;
+      const viewArea=full&&['front','back'].includes(view)?{width:100,height:100}:garment.areas[view];
+      const widthIn=sheet?sheet.w/25.4*viewArea.width/100:isTee?(product.mockups?.photoWidthIn||PHOTO_WIDTH_IN)*viewArea.width/100:null;
+      const ratio=Math.min(widthIn?widthIn*300/width:3,4096/Math.max(width,height),Math.sqrt(12000000/(width*height)));
+      const src=await toPng(el,{
+        width,height,pixelRatio:ratio,
+        style:{position:'relative',left:'0',top:'0',width:`${width}px`,height:`${height}px`,background:'transparent',transform:'none'},
+        filter:(node)=>!node.classList?.contains('st-guide')&&!node.classList?.contains('st-chrome')&&!node.classList?.contains('st-empty'),
+      });
+      prints[view]={src,widthPx:Math.round(width*ratio),heightPx:Math.round(height*ratio),widthIn,heightIn:widthIn?widthIn*height/width:null,dpi:widthIn?Math.round(width*ratio/widthIn):null};
     }
     const designId = crypto.randomUUID();
-    await saveDesignAsset(designId, { ...snapshot, mockups });
+    await saveDesignAsset(designId, { ...snapshot, mockups, prints });
     const bits = [
       cfg.methodLabel, cfg.material, cfg.colour, cfg.audience,
       sheet && `${sheet.label} sheet`,

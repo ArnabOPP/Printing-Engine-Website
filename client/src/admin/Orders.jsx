@@ -41,6 +41,7 @@ function Layers({ orderId, design }) {
   return (
     <>
       {design.mode === 'full' && <p className="ad-pill">Full body print</p>}
+      {Object.entries(design.prints || {}).map(([side,image])=><div key={`print-${side}`}><h4>{SIDE_LABEL[side]} print only</h4><Artwork orderId={orderId} image={image}/><p className="ad-muted">{image.widthPx} × {image.heightPx}px{image.dpi?` · approximately ${image.dpi} DPI at the configured print width`:''}. Check physical size before production. Original uploads are listed below.</p></div>)}
       {Object.entries(design.mockups || {}).map(([side, image]) => (
         <div key={side}><h4>{SIDE_LABEL[side]} mockup</h4><Artwork orderId={orderId} image={image} /></div>
       ))}

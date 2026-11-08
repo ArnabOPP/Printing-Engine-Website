@@ -9,6 +9,7 @@ import TeePhoto from '../components/TeePhoto.jsx';
 import SizeChart from '../components/SizeChart.jsx';
 import NotFound from './NotFound.jsx';
 import ProductReviews from '../components/ProductReviews.jsx';
+import { assetUrl } from '../api.js';
 
 const audiences = [
   { id: 'men', label: 'Men', hint: 'Regular adult fit', icon: User, sizes: ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'] },
@@ -360,10 +361,10 @@ export default function Customise() {
           <div className="opt-preview">
             {isApparel ? (
               garmentFor(product, colour).tint ? <TeePhoto
-                src={garmentFor(product, colour).photos[view]}
+                src={assetUrl(garmentFor(product, colour).photos[view])}
                 colour={colourObj?.hex || '#ffffff'}
                 alt={`${label}, ${view} view${colour ? `, ${colour}` : ''}`}
-              /> : <img src={garmentFor(product, colour).photos[view]} alt={`${label}, ${view} view`} />
+              /> : <img src={assetUrl(garmentFor(product, colour).photos[view])} alt={`${label}, ${view} view`} />
             ) : product.img ? (
               <img src={product.img} alt="" />
             ) : (
