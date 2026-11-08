@@ -20,6 +20,7 @@ import customProductsRouter from './customProducts.js';
 import { withCatalogLock } from '../catalogLock.js';
 import { restockCancelledOrder } from '../inventory.js';
 import { cleanupDispatchedAssets } from '../assetRetention.js';
+import { reviewAdminRouter } from './reviews.js';
 
 const router = Router();
 
@@ -62,6 +63,7 @@ router.post('/logout', (req, res) => {
 
 // Everything below needs a signed-in admin.
 router.use(requireAdmin);
+router.use('/reviews', reviewAdminRouter);
 router.use('/custom-products', customProductsRouter);
 
 router.get('/me', (req, res) => res.json({ admin: publicAdmin(req.admin), statuses: STATUSES }));

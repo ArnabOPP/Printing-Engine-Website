@@ -8,6 +8,7 @@ import { productIcons } from '../productIcons.js';
 import TeePhoto from '../components/TeePhoto.jsx';
 import SizeChart from '../components/SizeChart.jsx';
 import NotFound from './NotFound.jsx';
+import ProductReviews from '../components/ProductReviews.jsx';
 
 const audiences = [
   { id: 'men', label: 'Men', hint: 'Regular adult fit', icon: User, sizes: ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'] },
@@ -415,6 +416,7 @@ export default function Customise() {
         </aside>
       </div>
 
+      <ProductReviews key={product.slug} productKey={`custom:${product.slug}`} />
       {isApparel && (
         <SizeChart
           open={chartOpen}

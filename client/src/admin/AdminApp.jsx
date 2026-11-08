@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { Activity, BadgePercent, Home, LayoutDashboard, LogOut, Package, Settings, Shirt, ShoppingBag, Store, Tags, Users, UserCog } from 'lucide-react';
+import { Activity, BadgePercent, Home, LayoutDashboard, LogOut, Package, Settings, Shirt, ShoppingBag, Store, Tags, Users, UserCog, MessageSquare } from 'lucide-react';
 import { api } from '../api.js';
 import './admin.css';
 import Dashboard from './Dashboard.jsx';
@@ -9,6 +9,7 @@ import Customers from './Customers.jsx';
 import Catalog from './Catalog.jsx';
 import CustomProducts from './CustomProducts.jsx';
 import Products from './Products.jsx';
+import Reviews from './Reviews.jsx';
 import HomePage from './HomePage.jsx';
 import Coupons from './Coupons.jsx';
 import Team from './Team.jsx';
@@ -79,6 +80,7 @@ const links = [
   ['/admin/customers', 'Customers', Users],
   ['/admin/home', 'Home page & content', Home],
   ['/admin/products', 'Shop products', ShoppingBag],
+  ['/admin/reviews', 'Product reviews', MessageSquare],
   ['/admin/coupons', 'Coupons & offers', BadgePercent],
   ['/admin/team', 'Admin team', UserCog, false, 'owner'],
   ['/admin/activity', 'Activity', Activity],
@@ -153,6 +155,7 @@ export default function AdminApp({ customOnly = false }) {
           <Route path="catalog" element={<Navigate to="/custom-admin/catalog" replace />} />
           <Route path="home" element={<HomePage />} />
           <Route path="products" element={<Products />} />
+          <Route path="reviews" element={<Reviews />} />
           <Route path="coupons" element={<Coupons />} />
           <Route path="team" element={admin.role === 'owner' ? <Team me={admin} /> : <Navigate to="/admin" replace />} />
           <Route path="activity" element={<ActivityLog />} />

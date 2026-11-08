@@ -1,6 +1,7 @@
 // Talks to the shop's server. In development Vite forwards /api to it; when the website and the server are on
 // different addresses, set VITE_API_URL (for example https://api.example.com) when building the website.
 const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+export const apiUrl = (path) => `${BASE}${path}`;
 
 export class ApiError extends Error {
   constructor(message, status) {
@@ -9,7 +10,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function api(path, { method = 'GET', body, signal } = {}) {
+export async function api(path, { method = 'GET', body, signal, headers = {} } = {}) {
   let res;
   try {
     res = await fetch(`${BASE}${path}`, {
@@ -20,6 +21,7 @@ export async function api(path, { method = 'GET', body, signal } = {}) {
         ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
         // Changes made from the admin panel must carry this (the server checks it).
         ...(method !== 'GET' ? { 'X-Admin-Request': '1' } : {}),
+        ...headers,
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });

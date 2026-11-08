@@ -14,6 +14,7 @@ import { shippingRouter, trackRouter, webhookRouter } from './routes/track.js';
 import { pollActive } from './shipping.js';
 import { cleanupDispatchedAssets } from './assetRetention.js';
 import { acquireStoreLock } from './processLock.js';
+import { reviewsRouter } from './routes/reviews.js';
 
 const releaseLock = acquireStoreLock();
 process.on('exit', releaseLock);
@@ -32,6 +33,7 @@ morgan.token('safe-url', (req) => {
 });
 app.use(morgan(':method :safe-url :status :response-time ms'));
 app.use(cookieParser());
+app.use('/api/reviews', reviewsRouter);
 
 // Orders can carry the customer's uploaded artwork, so this one route accepts a bigger body than the rest.
 app.use('/api/orders', express.json({ limit: '60mb' }), ordersRouter);

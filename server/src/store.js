@@ -13,7 +13,7 @@ export const PUBLIC_DIR = path.join(DATA_DIR, 'public'); // pictures the team up
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 fs.mkdirSync(PUBLIC_DIR, { recursive: true });
 
-const fresh = () => ({ admins: [], orders: [], catalog: {}, content: {}, coupons: [], audit: [], pendingFileDeletes: [] });
+const fresh = () => ({ admins: [], orders: [], catalog: {}, content: {}, coupons: [], audit: [], pendingFileDeletes: [], reviews: [] });
 
 let db;
 try {

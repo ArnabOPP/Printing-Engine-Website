@@ -6,6 +6,8 @@ import { products } from '../data.js';
 import { useCart } from '../context/CartContext.jsx';
 import { useWishlist } from '../context/WishlistContext.jsx';
 import NotFound from './NotFound.jsx';
+import ProductReviews from '../components/ProductReviews.jsx';
+import { api } from '../api.js';
 
 const perks = [
   [Printer, 'Premium DTF Print'],
@@ -74,6 +76,12 @@ export default function Product() {
   const [qty, setQty] = useState(1);
   const [tab, setTab] = useState(0);
   const [note, setNote] = useState('');
+  const [reviewSummary,setReviewSummary] = useState(null);
+  useEffect(() => {
+    let live=true;setReviewSummary(null);
+    if(product) api(`/api/reviews?product=${encodeURIComponent(`shop:${product.id}`)}`).then((r)=>{if(live)setReviewSummary({count:r.count,average:r.average});}).catch(()=>{});
+    return ()=>{live=false;};
+  },[product?.id]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -124,7 +132,7 @@ export default function Product() {
           <span className="pd-brand">{product.brand}</span>
           <div className="pd-price-row">
             <span className="pd-price">₹{product.price}{product.comparePrice ? <><s>₹{product.comparePrice}</s><span className="off-badge">{Math.round((1 - product.price / product.comparePrice) * 100)}% off</span></> : null}</span>
-            <span className="pd-rating"><Star size={15} fill="currentColor" /> {product.rating} <small>({product.reviewCount} reviews)</small></span>
+            {reviewSummary && <span className="pd-rating"><Star size={15} fill="currentColor" /> {reviewSummary.average ?? 'No ratings yet'} <small>({reviewSummary.count} reviews)</small></span>}
           </div>
           <p className="pd-blurb">{product.blurb}</p>
 
@@ -170,7 +178,7 @@ export default function Product() {
         <div className="pd-tabs" role="tablist">
           {tabs.map((t, i) => (
             <button key={t} role="tab" aria-selected={i === tab} className={i === tab ? 'on' : ''} onClick={() => setTab(i)}>
-              {i === 3 ? `${t} (${product.reviewCount})` : t}
+              {i === 3 && reviewSummary ? `${t} (${reviewSummary.count})` : t}
             </button>
           ))}
         </div>
@@ -197,7 +205,7 @@ export default function Product() {
               {product.shipping.map((f) => <li key={f}><Check size={16} />{f}</li>)}
             </ul>
           )}
-          {tab === 3 && <p className="pd-muted">Customer reviews will appear here once reviews are connected to the store.</p>}
+          {tab === 3 && <ProductReviews key={product.id} productKey={`shop:${product.id}`} onSummary={setReviewSummary} />}
         </div>
       </section>
     </div>

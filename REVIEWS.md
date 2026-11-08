@@ -1,0 +1,11 @@
+# Customer product reviews
+
+Customers sign in through the existing Firebase account page, then open a shop product's Reviews tab or the reviews section below a custom product's options. Each Firebase account may publish one review per product, with a 1–5 rating, public display name, 3–2,000 character comment and up to three optional JPG, PNG or WebP photos under 3 MB each. Submission includes consent to publish. Reviews reflect signed-in users' submissions; they do not carry a verified-purchase claim.
+
+The main panel has **Product reviews** at `/admin/reviews`. Any approved admin may search visible/removed reviews, remove an abusive review with an optional internal reason, or restore it. Removal hides the entire review and its public photos and excludes the rating from the product average. The action is audited. Photos and review records remain available to authenticated admins so removal is reversible. Already downloaded copies cannot be recalled.
+
+Review photos are decoded and converted to still WebP, capped at 25 megapixels input and 1,600 pixels output per dimension, with EXIF/location metadata removed. They use private R2 order-storage helpers under `artwork/review-<review ID>/`, separate from actual order IDs. They are retained independently of courier dispatch. In R2-required mode, missing storage configuration rejects photo reviews. Local development uses DATA_DIR/uploads. Public photo endpoints check the review's current status, never accept arbitrary file paths, and use no-store caching.
+
+Reviews are persisted in the existing Railway volume database. Keep the existing single-replica deployment and backups. No new Firebase rules or credentials are needed; the backend verifies shopper Firebase ID tokens using the configured service account. Reviews are rate limited by both account and IP. Product identity uses the stable shop product ID or custom product slug; renaming a shop product preserves its reviews. Home-page curated customer photos remain a separate admin-managed content feature.
+
+Validation: `npm test --workspace server`, `npm run build --workspace client`. Review tests cover authentication, input validation, concurrent duplicates, image conversion/metadata stripping, moderation access, photo revocation, rating aggregates, stable IDs, R2-required behavior and disk failure.
