@@ -1,0 +1,9 @@
+[
+  {
+    "AllowedOrigins": ["https://printingengine.in", "https://www.printingengine.in"],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]

@@ -7,7 +7,9 @@ import {
 } from '../auth.js';
 import crypto from 'node:crypto';
 import { PUBLIC_DIR, audit, data, newId, save } from '../store.js';
-import { deleteArtwork, readArtwork } from '../files.js';
+import { deleteArtwork, readArtwork, savePublicMedia } from '../files.js';
+import sharp from 'sharp';
+import { mediaStatus, syncAllImages } from '../mediaStorage.js';
 import { cleanContent, cleanCoupon } from '../content.js';
 import * as delhivery from '../delhivery.js';
 import { pollActive, refreshOrder } from '../shipping.js';
@@ -64,6 +66,8 @@ router.post('/logout', (req, res) => {
 // Everything below needs a signed-in admin.
 router.use(requireAdmin);
 router.use('/reviews', reviewAdminRouter);
+router.get('/media-status', (req,res)=>res.json(mediaStatus()));
+router.post('/media-sync', (req,res)=>{syncAllImages().catch((err)=>console.error('R2 image sync failed:',err.name));res.status(202).json(mediaStatus());});
 router.use('/custom-products', customProductsRouter);
 
 router.get('/me', (req, res) => res.json({ admin: publicAdmin(req.admin), statuses: STATUSES }));
@@ -217,7 +221,7 @@ router.get('/orders/:id/files/:name', async (req, res, next) => {
     const o = findOrder(req.params.id);
     const name = path.basename(req.params.name);
     if (o.assetsDeletedAt) throw bad('Artwork was removed after courier-confirmed dispatch.', 410);
-    const known = Object.values(o.designs || {}).some((d) => ['front', 'back', 'left', 'right'].some((s) => d.mockups?.[s]?.file === name || (d[s] || []).some((l) => l.image?.file === name)));
+    const known = Object.values(o.designs || {}).some((d) => ['front', 'back', 'left', 'right'].some((s) => d.mockups?.[s]?.file === name || d.prints?.[s]?.file === name || (d[s] || []).some((l) => l.image?.file === name)));
     const file = known ? await readArtwork(o.id, name) : null;
     if (!file) throw bad('File not found.', 404);
     res.set({ 'Content-Type': file.type, 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox", 'Cache-Control': 'private, max-age=300' });
@@ -476,7 +480,11 @@ router.post('/uploads', async (req, res, next) => {
     const buf = Buffer.from(m[2], 'base64');
     if (buf.length > 8 * 1024 * 1024) throw bad('That picture is over 8 MB. Please use a smaller one.');
     const name = `${Date.now().toString(36)}${crypto.randomBytes(4).toString('hex')}.${m[1] === 'jpeg' ? 'jpg' : m[1]}`;
-    fs.writeFileSync(path.join(PUBLIC_DIR, name), buf);
+    try {
+      const meta=await sharp(buf,{limitInputPixels:40000000}).metadata();
+      if(meta.format!==m[1]) throw new Error('Invalid format');
+    }catch{throw bad('That file is not a readable supported image.');}
+    await savePublicMedia('uploads',name,buf);
     audit(req.admin.email, 'upload', name);
     await save();
     res.status(201).json({ url: `/uploads/${name}` });

@@ -16,6 +16,8 @@ import { cleanupDispatchedAssets } from './assetRetention.js';
 import { acquireStoreLock } from './processLock.js';
 import { reviewsRouter } from './routes/reviews.js';
 import { purgeRemovedReviews, cleanupReviewPhotos } from './reviewDeletion.js';
+import { mediaRouter, uploadsRouter } from './routes/media.js';
+import { syncAllImages, cleanupAbandonedImages } from './mediaStorage.js';
 
 const releaseLock = acquireStoreLock();
 process.on('exit', releaseLock);
@@ -43,10 +45,8 @@ app.use('/api/admin/custom-products/media', express.json({ limit: '12mb' }));
 app.use(express.json({ limit: '1mb' }));
 
 // Pictures the team uploaded for the website. Public, and served so a browser can only ever show them as images.
-app.use('/uploads', express.static(PUBLIC_DIR, { maxAge: '7d', immutable: true, index: false, setHeaders: (res) => {
-  res.set('X-Content-Type-Options', 'nosniff');
-  res.set('Cross-Origin-Resource-Policy', 'cross-origin');
-} }));
+app.use('/uploads', uploadsRouter);
+app.use('/api/media', mediaRouter);
 
 app.use('/api/catalog', catalogRouter);
 app.use('/api/content', contentRouter);
@@ -81,6 +81,11 @@ app.use((err, req, res, next) => {
 await purgeRemovedReviews();
 const server = app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));
 server.on('error', (err) => { console.error('Server failed:', err.message); process.exitCode = 1; releaseLock(); });
+const syncMedia=()=>syncAllImages().catch((err)=>console.error('R2 image sync failed:',err.name));
+syncMedia();
+const mediaSync=setInterval(syncMedia,60*60*1000);mediaSync.unref();
+const abandonedCleanup=setInterval(()=>cleanupAbandonedImages().catch((err)=>console.error('Abandoned image cleanup failed:',err.name)),24*60*60*1000);abandonedCleanup.unref();
+cleanupAbandonedImages().catch((err)=>console.error('Abandoned image cleanup failed:',err.name));
 
 // Check parcels that are on their way every 30 minutes (covers any push Delhivery misses).
 const polling = setInterval(() => pollActive().catch((e) => console.error('Tracking poll failed:', e.message)), 30 * 60 * 1000);
@@ -99,6 +104,8 @@ async function shutdown() {
   stopping = true;
   clearInterval(polling);
   clearInterval(cleanup);
+  clearInterval(mediaSync);
+  clearInterval(abandonedCleanup);
   server.close(async () => {
     try { await save(); } catch (err) { console.error('Shutdown save failed:', err.message); process.exitCode = 1; }
     releaseLock();

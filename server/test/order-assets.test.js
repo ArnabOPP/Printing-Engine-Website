@@ -26,7 +26,7 @@ const server = app.listen(0, '127.0.0.1');
 await new Promise((resolve) => server.on('listening', resolve));
 const url = `http://127.0.0.1:${server.address().port}/orders`;
 const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a9ZkAAAAASUVORK5CYII=';
-const design = () => ({ front: [{ type: 'image', x:50,y:50,rot:0,w:20,image: { src: png, name: 'art.png',ratio:1 } }],back:[],left:[],right:[],mode:'normal', mockups: { front: png } });
+const design = () => ({ front: [{ type: 'image', x:50,y:50,rot:0,w:20,image: { src: png, name: 'art.png',ratio:1 } }],back:[],left:[],right:[],mode:'normal', mockups: { front: png },prints:{front:{src:png,widthIn:10}} });
 const cfg = { material:'Pure cotton',colour:'white',audience:'unisex',sizes:{L:1},quantity:1,method:'dtf' };
 const product = buildCatalog().flatMap((g) => g.items).find((p) => p.slug === 'regular-t-shirt');
 const unit = customQuote(product,cfg,design()).perPiece;
@@ -46,7 +46,15 @@ test('custom order keeps distinct designs, artwork and mockups as private files'
   assert.equal(first.front[0].image.src, undefined);
   assert.equal((await readArtwork(order.id, first.front[0].image.file)).type, 'image/png');
   assert.equal((await readArtwork(order.id, first.mockups.front.file)).type, 'image/png');
+  assert.equal((await readArtwork(order.id, first.prints.front.file)).type, 'image/png');
+  assert.equal(first.prints.front.widthPx,1);
+  assert.equal(first.prints.front.src,undefined);
+  assert.notEqual(first.prints.front.file,first.mockups.front.file);
   assert.notEqual(first.mockups.front.file, order.designs['design-two'].mockups.front.file);
+});
+test('invalid print-only exports are rejected before an order or files are created',async()=>{
+  const payload=body();payload.designs['design-one'].prints.front.src='data:image/png;base64,YmFk';
+  const count=data().orders.length;assert.equal((await post(payload)).status,400);assert.equal(data().orders.length,count);
 });
 
 test('missing mockup refuses the order before saving files', async () => {

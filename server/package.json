@@ -7,6 +7,7 @@
   "scripts": {
     "test": "node --test test/*.test.js",
     "r2:check": "node --env-file-if-exists=.env scripts/check-r2.js",
+    "r2:sync": "node --env-file-if-exists=.env scripts/sync-images.js",
     "delivery:check": "node --env-file-if-exists=.env scripts/check-delivery.js",
     "dev": "node --watch --env-file-if-exists=.env src/index.js",
     "start": "node --env-file-if-exists=.env src/index.js",

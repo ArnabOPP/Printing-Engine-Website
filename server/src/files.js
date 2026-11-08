@@ -3,8 +3,9 @@
 // Orders only ever store the file's name; this module is the only place that knows where the bytes live.
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { UPLOAD_DIR, PUBLIC_DIR } from './store.js';
+import { UPLOAD_DIR, PUBLIC_DIR, data, save } from './store.js';
 
 const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_ENDPOINT } = process.env;
 
@@ -21,18 +22,48 @@ const client = r2Enabled
     responseChecksumValidation: 'WHEN_REQUIRED',
   })
   : null;
+export const r2Client = client;
+export const publicBucket = process.env.R2_PUBLIC_BUCKET || R2_BUCKET;
+export const publicBase = process.env.R2_PUBLIC_BUCKET && process.env.R2_PUBLIC_BUCKET !== R2_BUCKET && /^https:\/\//.test(process.env.R2_PUBLIC_BASE_URL || '') ? process.env.R2_PUBLIC_BASE_URL.replace(/\/$/,'') : '';
 
 const key = (orderId, name) => `artwork/${orderId}/${name}`;
-const TYPES = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', svg: 'image/svg+xml' };
-export const typeOf = (name) => TYPES[String(name).split('.').pop()] || 'application/octet-stream';
+const TYPES = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', svg: 'image/svg+xml', avif: 'image/avif' };
+export const typeOf = (name) => TYPES[String(name).split('.').pop().toLowerCase()] || 'application/octet-stream';
+
+export async function savePublicMedia(kind, name, buf) {
+  if (!['assets','uploads','catalog'].includes(kind) || !/^[A-Za-z0-9][A-Za-z0-9._ -]*\.(png|jpe?g|webp|gif|svg|avif)$/i.test(name)) throw new Error('Invalid public image reference.');
+  if (!r2Enabled) {
+    if (process.env.R2_REQUIRED === 'true') throw Object.assign(new Error('R2 image storage is not configured.'), {status:503,expose:true});
+    await fs.promises.writeFile(path.join(PUBLIC_DIR,name),buf);
+    return;
+  }
+  await client.send(new PutObjectCommand({Bucket:publicBucket,Key:`public/${kind}/${name}`,Body:buf,ContentType:typeOf(name),CacheControl:kind==='assets'?'public, max-age=3600':'public, max-age=604800, immutable'}));
+  data().mediaObjects ||= {};
+  data().mediaObjects[`${kind}/${name}`]={hash:crypto.createHash('sha256').update(buf).digest('hex'),bucket:publicBucket};
+  await save();
+}
+
+export async function readPublicMedia(kind, name) {
+  if (!['assets','uploads','catalog'].includes(kind) || !/^[A-Za-z0-9][A-Za-z0-9._ -]*\.(png|jpe?g|webp|gif|svg|avif)$/i.test(name)) return null;
+  if (r2Enabled) {
+    for(const Bucket of [...new Set([publicBucket,R2_BUCKET])])try {
+      const value=await client.send(new GetObjectCommand({Bucket,Key:`public/${kind}/${name}`}));
+      return {body:Buffer.from(await value.Body.transformToByteArray()),type:typeOf(name),storage:'r2'};
+    } catch(err) {if(err.name!=='NoSuchKey' && err.$metadata?.httpStatusCode!==404) throw err;}
+  }
+  const local=path.join(PUBLIC_DIR,name);
+  if(fs.existsSync(local)) return {body:await fs.promises.readFile(local),type:typeOf(name)};
+  return null;
+}
 
 // Catalogue templates have a separate, permanent prefix from disposable order files.
 export async function saveCatalogMedia(name, buf) {
-  if (!r2Enabled) return fs.promises.writeFile(path.join(PUBLIC_DIR, name), buf);
-  await client.send(new PutObjectCommand({ Bucket: R2_BUCKET, Key: `catalog/${name}`, Body: buf, ContentType: typeOf(name) }));
+  await savePublicMedia('catalog',name,buf);
 }
 export async function readCatalogMedia(name) {
   if (!/^catalog-[a-f0-9]{24}\.(png|jpg|webp|gif)$/.test(name)) return null;
+  const migrated=await readPublicMedia('catalog',name);
+  if(migrated)return migrated;
   const local = path.join(PUBLIC_DIR, name);
   if (fs.existsSync(local)) return { body: await fs.promises.readFile(local), type: typeOf(name) };
   if (!r2Enabled) return null;

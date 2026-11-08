@@ -9,6 +9,7 @@ import { couponResult } from '../content.js';
 import { checkDestination } from '../delhivery.js';
 import { withCatalogLock } from '../catalogLock.js';
 import { prepareCustomOrder, reserveInventory } from '../inventory.js';
+import { servePublicImage } from './media.js';
 
 export const catalogRouter = Router();
 export const contentRouter = Router();
@@ -22,14 +23,7 @@ catalogRouter.get('/', (req, res) => {
   const productEntries = Object.fromEntries(Object.entries(c.productEntries || {}).map(([slug, p]) => [slug, p.status === 'draft' || p.status === 'archived' || (p.status === 'scheduled' && Date.parse(p.launchAt) > Date.now()) ? { slug, groupId: p.groupId, status: 'draft' } : p]));
   res.json({ ...c, productEntries });
 });
-catalogRouter.get('/media/:name', async (req, res, next) => {
-  try {
-    const file = await readCatalogMedia(req.params.name);
-    if (!file) return res.status(404).json({ error: 'Image not found.' });
-    res.set({ 'Content-Type': file.type, 'Cache-Control': 'public, max-age=604800, immutable', 'Cross-Origin-Resource-Policy': 'cross-origin', 'X-Content-Type-Options': 'nosniff' });
-    res.send(file.body);
-  } catch (err) { next(err); }
-});
+catalogRouter.get('/media/:name', (req,res,next)=>servePublicImage(req,res,next,'catalog',req.params.name));
 
 // The editable parts of the website: products, home page sections, reviews, categories.
 contentRouter.get('/', (req, res) => {
@@ -134,7 +128,21 @@ function cleanDesigns(designs, uploads) {
       files += 1;
       mockups[side] = { file: name, name: `${side}-mockup.png` };
     }
-    out[slug] = { ...sides, mockups, mode: d?.mode === 'full' ? 'full' : 'normal' };
+    const prints={};
+    for(const side of ['front','back','left','right']){
+      const print=d?.prints?.[side];if(!print)continue;
+      const match=/^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(String(print.src||''));
+      if(!match)throw bad('A print-only image could not be read. Reopen the studio and add the design again.');
+      const buf=Buffer.from(match[1],'base64');bytes+=buf.length;
+      if(buf.length<24||!buf.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))||buf.length>12*1024*1024||bytes>45*1024*1024||files>=100)throw bad('The print files in this order are invalid or too large.');
+      const widthPx=buf.readUInt32BE(16),heightPx=buf.readUInt32BE(20);
+      if(!widthPx||!heightPx||widthPx>4096||heightPx>4096||widthPx*heightPx>12010000)throw bad('Print-only exports must be at most 4096 pixels per side and 12 megapixels.');
+      const name=`print-${crypto.randomBytes(8).toString('hex')}.png`;
+      uploads.push({name,buf});files++;
+      const widthIn=Number.isFinite(print.widthIn)&&print.widthIn>0&&print.widthIn<=120?print.widthIn:null;
+      prints[side]={file:name,name:`${side}-print-only.png`,widthPx,heightPx,widthIn,heightIn:widthIn?widthIn*heightPx/widthPx:null,dpi:widthIn?Math.round(widthPx/widthIn):null};
+    }
+    out[slug] = { ...sides, mockups, prints, mode: d?.mode === 'full' ? 'full' : 'normal' };
   }
   return out;
 }
